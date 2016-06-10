@@ -9,6 +9,8 @@
 
     internal delegate void SQLiteTraceV2(IntPtr data, IntPtr stmt, string query);
 
+    internal delegate void SQLiteRow(IntPtr data, IntPtr stmt);
+
     internal delegate void SQLiteProfile(IntPtr data, IntPtr stmt, ulong time);
 
     internal static class UnsafeNativeMethods
@@ -22,7 +24,19 @@
         internal static extern IntPtr sqlite3_trace_v2(IntPtr db, SQLiteTraceV2 trace, IntPtr data);
 
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr sqlite3_row(IntPtr db, SQLiteRow trace, IntPtr data);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr sqlite3_profile(IntPtr db, SQLiteProfile profile, IntPtr data);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int sqlite3_column_count(IntPtr stmt);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr sqlite3_column_name(IntPtr stmt, int N);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr sqlite3_column_text(IntPtr stmt, int N);
 
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr sqlite3_sql(IntPtr stmt);
