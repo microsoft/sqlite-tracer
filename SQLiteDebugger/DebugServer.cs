@@ -1,5 +1,7 @@
 namespace SQLiteDebugger
 {
+    using Newtonsoft.Json;
+    using Newtonsoft.Json.Linq;
     using System;
     using System.Collections.Generic;
     using System.Data;
@@ -55,22 +57,31 @@ namespace SQLiteDebugger
             }
         }
         
-        public void SendMessage(string message)
+        private static MessageJsonConverter<LogMessage> logConverter = new MessageJsonConverter<LogMessage>("log");
+
+        public void SendLog(string message)
         {
-            var data = MessageWithTimeStamp("*LG*", message);
-            this.clients.ForEach(s => this.Send(s, data));
+            var data = new LogMessage { Database = "db", Time = DateTime.Now, Message = message };
+            var json = JsonConvert.SerializeObject(data, logConverter);
+            this.clients.ForEach(s => this.Send(s, json));
         }
 
-        public void SendQueryStart(string message, int queryId)
+        private static MessageJsonConverter<TraceMessage> traceConverter = new MessageJsonConverter<TraceMessage>("trace");
+
+        public void SendTrace(string message, int queryId)
         {
-            var data = MessageWithTimeStamp("*QS*", message, queryId);
-            this.clients.ForEach(s => this.Send(s, data));
+            var data = new TraceMessage { Database = "db", Time = DateTime.Now, Id = queryId, Query = message };
+            var json = JsonConvert.SerializeObject(data, traceConverter);
+            this.clients.ForEach(s => this.Send(s, json));
         }
 
-        public void SendQueryEnd(string message, int queryId)
+        private static MessageJsonConverter<ProfileMessage> profileConverter = new MessageJsonConverter<ProfileMessage>("profile");
+
+        public void SendProfile(int queryId, TimeSpan duration)
         {
-            var data = MessageWithTimeStamp("*QE*", message, queryId);
-            this.clients.ForEach(s => this.Send(s, data));
+            var data = new ProfileMessage { Database = "db", Time = DateTime.Now, Id = queryId, Duration = duration };
+            var json = JsonConvert.SerializeObject(data, profileConverter);
+            this.clients.ForEach(s => this.Send(s, json));
         }
 
         private void Send(Socket socket, string message)
@@ -90,21 +101,6 @@ namespace SQLiteDebugger
                 socket.Dispose();
                 this.clients.Remove(socket);
             }
-        }
-
-        private static string MessageWithTimeStamp(string prefix, string message, int id = 0)
-        {
-            string messageWithTimeStamp = null;
-            if (id > 0)
-            {
-                messageWithTimeStamp = string.Format(CultureInfo.InvariantCulture, "{0}#{1}#{2},{3}", prefix, id, DateTime.Now.Ticks, message);
-            }
-            else
-            {
-                messageWithTimeStamp = string.Format(CultureInfo.InvariantCulture, "{0}{1},{2}", prefix, DateTime.Now.Ticks, message);
-            }
-
-            return string.Format(CultureInfo.InvariantCulture, "{0},{1}", messageWithTimeStamp.Length, messageWithTimeStamp);
         }
     }
 }

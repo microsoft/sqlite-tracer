@@ -8,7 +8,7 @@
 
     public class StatementInterceptor
     {
-        private DebugServer tracer;
+        private DebugServer server;
 
         private SQLiteEntryPoint connect;
         private SQLiteTraceV2 trace;
@@ -18,14 +18,14 @@
         private ConcurrentDictionary<IntPtr, int> queries = new ConcurrentDictionary<IntPtr, int>();
         private int currentId = 0;
 
-        public StatementInterceptor(DebugServer tracer)
+        public StatementInterceptor(DebugServer server)
         {
-            if (tracer == null)
+            if (server == null)
             {
-                throw new ArgumentNullException("tracer");
+                throw new ArgumentNullException("server");
             }
 
-            this.tracer = tracer;
+            this.server = server;
             this.connect = this.Connect;
             this.trace = this.Trace;
             this.row = this.Row;
@@ -49,12 +49,12 @@
         {
             var id = this.queries.GetOrAdd(stmt, (k) => Interlocked.Increment(ref this.currentId));
 
-            this.tracer.SendQueryStart(sql, id);
+            this.server.SendTrace(sql, id);
 
             var count = UnsafeNativeMethods.sqlite3_column_count(stmt);
             for (var i = 0; i < count; i++)
             {
-                var name = UnsafeNativeMethods.sqlite3_column_name(stmt, i);
+                UnsafeNativeMethods.sqlite3_column_name(stmt, i);
             }
         }
 
@@ -63,7 +63,7 @@
             var count = UnsafeNativeMethods.sqlite3_column_count(stmt);
             for (var i = 0; i < count; i++)
             {
-                var text = UnsafeNativeMethods.sqlite3_column_text(stmt, i);
+                UnsafeNativeMethods.sqlite3_column_text(stmt, i);
             }
         }
 
@@ -72,8 +72,7 @@
             int id;
             this.queries.TryRemove(stmt, out id);
 
-            var sql = UTF8ToString(UnsafeNativeMethods.sqlite3_sql(stmt));
-            this.tracer.SendQueryEnd(sql, id);
+            this.server.SendProfile(id, TimeSpan.FromMilliseconds(time / 1000000));
         }
 
         internal static string UTF8ToString(IntPtr data)

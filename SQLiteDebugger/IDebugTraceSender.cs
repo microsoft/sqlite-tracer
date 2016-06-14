@@ -10,6 +10,6 @@ namespace SQLiteDebugger
 
     public interface IDebugTraceSender
     {
-        void SendMessage(string message);
+        void SendLog(string message);
     }
 }
