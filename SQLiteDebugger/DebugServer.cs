@@ -61,25 +61,40 @@ namespace SQLiteDebugger
 
         public void SendLog(string message)
         {
-            var data = new LogMessage { Database = "db", Time = DateTime.Now, Message = message };
+            var data = new LogMessage
+            {
+                Database = "db", Time = DateTime.Now,
+                Message = message
+            };
+
             var json = JsonConvert.SerializeObject(data, logConverter);
             this.clients.ForEach(s => this.Send(s, json));
         }
 
         private static MessageJsonConverter<TraceMessage> traceConverter = new MessageJsonConverter<TraceMessage>("trace");
 
-        public void SendTrace(string message, int queryId)
+        public void SendTrace(int id, string query)
         {
-            var data = new TraceMessage { Database = "db", Time = DateTime.Now, Id = queryId, Query = message };
+            var data = new TraceMessage
+            {
+                Database = "db", Time = DateTime.Now, Id = id,
+                Query = query
+            };
+
             var json = JsonConvert.SerializeObject(data, traceConverter);
             this.clients.ForEach(s => this.Send(s, json));
         }
 
         private static MessageJsonConverter<ProfileMessage> profileConverter = new MessageJsonConverter<ProfileMessage>("profile");
 
-        public void SendProfile(int queryId, TimeSpan duration)
+        public void SendProfile(int id, TimeSpan duration, DataTable results)
         {
-            var data = new ProfileMessage { Database = "db", Time = DateTime.Now, Id = queryId, Duration = duration };
+            var data = new ProfileMessage
+            {
+                Database = "db", Time = DateTime.Now, Id = id,
+                Duration = duration, Results = results
+            };
+
             var json = JsonConvert.SerializeObject(data, profileConverter);
             this.clients.ForEach(s => this.Send(s, json));
         }

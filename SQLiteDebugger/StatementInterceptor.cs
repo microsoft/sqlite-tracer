@@ -2,6 +2,9 @@
 {
     using System;
     using System.Collections.Concurrent;
+    using System.Collections.Generic;
+    using System.Data;
+    using System.Globalization;
     using System.Runtime.InteropServices;
     using System.Text;
     using System.Threading;
@@ -10,13 +13,18 @@
     {
         private DebugServer server;
 
-        private SQLiteEntryPoint connect;
-        private SQLiteTraceV2 trace;
-        private SQLiteRow row;
-        private SQLiteProfile profile;
+        private SQLiteEntryPoint connectHandler;
+        private SQLiteTraceV2 traceHandler;
+        private SQLiteRow rowHandler;
+        private SQLiteProfile profileHandler;
 
-        private ConcurrentDictionary<IntPtr, int> queries = new ConcurrentDictionary<IntPtr, int>();
+        private bool collectResults = false;
+        private List<IntPtr> dbs = new List<IntPtr>();
+
         private int currentId = 0;
+        private ConcurrentDictionary<IntPtr, int> queries = new ConcurrentDictionary<IntPtr, int>();
+
+        private ConcurrentDictionary<IntPtr, DataTable> results = new ConcurrentDictionary<IntPtr, DataTable>();
 
         public StatementInterceptor(DebugServer server)
         {
@@ -26,53 +34,109 @@
             }
 
             this.server = server;
-            this.connect = this.Connect;
-            this.trace = this.Trace;
-            this.row = this.Row;
-            this.profile = this.Profile;
+            this.connectHandler = this.OnConnect;
+            this.traceHandler = this.OnTrace;
+            this.rowHandler = this.OnRow;
+            this.profileHandler = this.OnProfile;
 
-            if (UnsafeNativeMethods.sqlite3_auto_extension(this.connect) != UnsafeNativeMethods.SQLITE_OK)
+            if (UnsafeNativeMethods.sqlite3_auto_extension(this.connectHandler) != UnsafeNativeMethods.SQLITE_OK)
             {
                 throw new InvalidOperationException("SQLite could not register extension");
             }
         }
 
-        private int Connect(IntPtr db, ref string errMsg, IntPtr api)
+        public bool CollectResults
         {
-            UnsafeNativeMethods.sqlite3_trace_v2(db, this.trace, IntPtr.Zero);
-            UnsafeNativeMethods.sqlite3_row(db, this.row, IntPtr.Zero);
-            UnsafeNativeMethods.sqlite3_profile(db, this.profile, IntPtr.Zero);
+            get
+            {
+                return this.collectResults;
+            }
+
+            set
+            {
+                this.collectResults = value;
+                if (this.collectResults)
+                {
+                    foreach (var db in this.dbs)
+                    {
+                        UnsafeNativeMethods.sqlite3_row(db, this.rowHandler, IntPtr.Zero);
+                    }
+                }
+                else
+                {
+                    foreach (var db in this.dbs)
+                    {
+                        UnsafeNativeMethods.sqlite3_row(db, null, IntPtr.Zero);
+                    }
+                }
+            }
+        }
+
+        private int OnConnect(IntPtr db, ref string errMsg, IntPtr api)
+        {
+            UnsafeNativeMethods.sqlite3_trace_v2(db, this.traceHandler, IntPtr.Zero);
+            UnsafeNativeMethods.sqlite3_profile(db, this.profileHandler, IntPtr.Zero);
+
+            if (this.collectResults)
+            {
+                UnsafeNativeMethods.sqlite3_row(db, this.rowHandler, IntPtr.Zero);
+            }
+
             return UnsafeNativeMethods.SQLITE_OK;
         }
 
-        private void Trace(IntPtr data, IntPtr stmt, string sql)
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "Object is stored in hash table")]
+        private void OnTrace(IntPtr data, IntPtr stmt, string sql)
         {
             var id = this.queries.GetOrAdd(stmt, (k) => Interlocked.Increment(ref this.currentId));
 
-            this.server.SendTrace(sql, id);
+            this.server.SendTrace(id, sql);
 
-            var count = UnsafeNativeMethods.sqlite3_column_count(stmt);
-            for (var i = 0; i < count; i++)
+            if (this.CollectResults)
             {
-                UnsafeNativeMethods.sqlite3_column_name(stmt, i);
+                var count = UnsafeNativeMethods.sqlite3_column_count(stmt);
+                var dataTable = new DataTable() { Locale = CultureInfo.InvariantCulture };
+
+                for (var i = 0; i < count; i++)
+                {
+                    dataTable.Columns.Add(UTF8ToString(UnsafeNativeMethods.sqlite3_column_name(stmt, i)));
+                }
+
+                this.results.TryAdd(stmt, dataTable);
             }
         }
 
-        private void Row(IntPtr data, IntPtr stmt)
+        private void OnRow(IntPtr data, IntPtr stmt)
         {
-            var count = UnsafeNativeMethods.sqlite3_column_count(stmt);
+            DataTable dataTable;
+            if (!this.results.TryGetValue(stmt, out dataTable))
+            {
+                return;
+            }
+
+            var count = dataTable.Columns.Count;
+            var row = dataTable.NewRow();
+
             for (var i = 0; i < count; i++)
             {
-                UnsafeNativeMethods.sqlite3_column_text(stmt, i);
+                row.SetField(i, UTF8ToString(UnsafeNativeMethods.sqlite3_column_text(stmt, i)));
             }
+
+            dataTable.Rows.Add(row);
         }
 
-        private void Profile(IntPtr data, IntPtr stmt, ulong time)
+        private void OnProfile(IntPtr data, IntPtr stmt, ulong time)
         {
             int id;
-            this.queries.TryRemove(stmt, out id);
+            if (!this.queries.TryRemove(stmt, out id))
+            {
+                return;
+            }
 
-            this.server.SendProfile(id, TimeSpan.FromMilliseconds(time / 1000000));
+            DataTable dataTable;
+            this.results.TryRemove(stmt, out dataTable);
+
+            this.server.SendProfile(id, TimeSpan.FromMilliseconds(time / 1000000), dataTable);
         }
 
         internal static string UTF8ToString(IntPtr data)
