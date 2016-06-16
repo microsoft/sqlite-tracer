@@ -73,12 +73,12 @@ namespace SQLiteDebugger
 
         private static MessageJsonConverter<TraceMessage> traceConverter = new MessageJsonConverter<TraceMessage>("trace");
 
-        public void SendTrace(int id, string query)
+        public void SendTrace(int id, string query, string plan = null)
         {
             var data = new TraceMessage
             {
                 Database = "db", Time = DateTime.Now, Id = id,
-                Query = query
+                Query = query, Plan = plan
             };
 
             var json = JsonConvert.SerializeObject(data, traceConverter);

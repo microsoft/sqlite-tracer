@@ -5,6 +5,7 @@
     using System.Collections.Generic;
     using System.Data;
     using System.Globalization;
+    using System.Linq;
     using System.Runtime.InteropServices;
     using System.Text;
     using System.Threading;
@@ -44,6 +45,8 @@
                 throw new InvalidOperationException("SQLite could not register extension");
             }
         }
+
+        public bool CollectPlan { get; set; }
 
         public bool CollectResults
         {
@@ -88,9 +91,22 @@
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "Object is stored in hash table")]
         private void OnTrace(IntPtr data, IntPtr stmt, string sql)
         {
+            // don't go into an endless loop trying to EXPLAIN EXPLAIN EXPLAIN EXPLAIN ...
+            if (sql.StartsWith("EXPLAIN", StringComparison.Ordinal))
+            {
+                return;
+            }
+
             var id = this.queries.GetOrAdd(stmt, (k) => Interlocked.Increment(ref this.currentId));
 
-            this.server.SendTrace(id, sql);
+            string plan = null;
+            if (this.CollectPlan)
+            {
+                var lines = ExplainQueryPlan(stmt).Select(qpr => new string('\t', qpr.Order) + qpr.Detail);
+                plan = string.Join("\n", lines);
+            }
+
+            this.server.SendTrace(id, sql, plan);
 
             if (this.CollectResults)
             {
@@ -137,6 +153,43 @@
             this.results.TryRemove(stmt, out dataTable);
 
             this.server.SendProfile(id, TimeSpan.FromMilliseconds(time / 1000000), dataTable);
+        }
+
+        private struct QueryPlanRow
+        {
+            public int SelectId { get; set; }
+
+            public int Order { get; set; }
+
+            public int From { get; set; }
+
+            public string Detail { get; set; }
+        }
+
+        private static IEnumerable<QueryPlanRow> ExplainQueryPlan(IntPtr stmt)
+        {
+            string explainSql = string.Format("EXPLAIN QUERY PLAN {0}", UTF8ToString(UnsafeNativeMethods.sqlite3_sql(stmt)));
+
+            IntPtr db = UnsafeNativeMethods.sqlite3_db_handle(stmt);
+            IntPtr explainStmt;
+            int rc = UnsafeNativeMethods.sqlite3_prepare_v2(db, explainSql, -1, out explainStmt, IntPtr.Zero);
+            if (rc != UnsafeNativeMethods.SQLITE_OK)
+            {
+                yield return new QueryPlanRow { Detail = "[Error] Could not get query plan" };
+                yield break;
+            }
+
+            while (UnsafeNativeMethods.sqlite3_step(explainStmt) == UnsafeNativeMethods.SQLITE_ROW)
+            {
+                int selectId = UnsafeNativeMethods.sqlite3_column_int(explainStmt, 0);
+                int order = UnsafeNativeMethods.sqlite3_column_int(explainStmt, 1);
+                int from = UnsafeNativeMethods.sqlite3_column_int(explainStmt, 2);
+                string detail = UTF8ToString(UnsafeNativeMethods.sqlite3_column_text(explainStmt, 3));
+
+                yield return new QueryPlanRow { SelectId = selectId, Order = order, From = from, Detail = detail };
+            }
+
+            UnsafeNativeMethods.sqlite3_finalize(explainStmt);
         }
 
         internal static string UTF8ToString(IntPtr data)

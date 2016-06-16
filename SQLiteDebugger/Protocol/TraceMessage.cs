@@ -14,5 +14,7 @@
         public DateTime Time { get; set; }
 
         public string Query { get; set; }
+
+        public string Plan { get; set; }
     }
 }
