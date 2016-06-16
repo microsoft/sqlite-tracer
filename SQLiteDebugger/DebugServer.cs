@@ -5,6 +5,7 @@ namespace SQLiteDebugger
     using System;
     using System.Collections.Generic;
     using System.Data;
+    using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.IO;
     using System.Linq;
@@ -18,7 +19,7 @@ namespace SQLiteDebugger
     {
         private TcpListener listener;
         private Task listenTask;
-        private List<Socket> clients = new List<Socket>();
+        private List<Tuple<Socket, CancellationTokenSource, Task>> clients = new List<Tuple<Socket, CancellationTokenSource, Task>>();
         private StatementInterceptor interceptor;
 
         public void Listen(int port)
@@ -44,6 +45,14 @@ namespace SQLiteDebugger
             if (disposing)
             {
                 this.listener.Stop();
+                foreach (var client in this.clients)
+                {
+                    client.Item2.Cancel();
+                    client.Item2.Dispose();
+
+                    client.Item1.Close();
+                    client.Item1.Dispose();
+                }
             }
         }
 
@@ -53,7 +62,49 @@ namespace SQLiteDebugger
             while (true)
             {
                 var socket = await this.listener.AcceptSocketAsync();
-                this.clients.Add(socket);
+                var cancel = new CancellationTokenSource();
+                this.clients.Add(Tuple.Create(
+                    socket,
+                    cancel,
+                    Task.Run(() => this.ReceiveMessages(socket, cancel.Token))));
+            }
+        }
+
+        [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times", Justification = "Nested usings")]
+        private void ReceiveMessages(Socket client, CancellationToken ct)
+        {
+            var serializer = new JsonSerializer();
+            using (var stream = new NetworkStream(client))
+            using (var streamReader = new StreamReader(stream))
+            using (var jsonReader = new JsonTextReader(streamReader) { SupportMultipleContent = true })
+            {
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        if (!jsonReader.Read())
+                        {
+                            break;
+                        }
+                    }
+                    catch (IOException)
+                    {
+                        break;
+                    }
+
+                    var message = JObject.Load(jsonReader);
+                    var reader = message.CreateReader();
+                    switch (message.Value<string>("type"))
+                    {
+                        case "options":
+                            var options = serializer.Deserialize<OptionsMessage>(reader);
+                            this.interceptor.CollectPlan = options.Plan;
+                            this.interceptor.CollectResults = options.Results;
+                            break;
+                    }
+                }
             }
         }
         
@@ -99,8 +150,9 @@ namespace SQLiteDebugger
             this.clients.ForEach(s => this.Send(s, json));
         }
 
-        private void Send(Socket socket, string message)
+        private void Send(Tuple<Socket, CancellationTokenSource, Task> client, string message)
         {
+            var socket = client.Item1;
             try
             {
                 byte[] buffer = Encoding.ASCII.GetBytes(message);
@@ -114,7 +166,7 @@ namespace SQLiteDebugger
                 }
 
                 socket.Dispose();
-                this.clients.Remove(socket);
+                this.clients.Remove(client);
             }
         }
     }

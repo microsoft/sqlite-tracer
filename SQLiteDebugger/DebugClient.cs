@@ -48,11 +48,24 @@
             }
         }
 
+        public event EventHandler<EventArgs> Connected;
+
         public event EventHandler<LogEventArgs> LogReceived;
 
         public event EventHandler<TraceEventArgs> TraceReceived;
 
         public event EventHandler<ProfileEventArgs> ProfileReceived;
+
+        private static MessageJsonConverter<OptionsMessage> optionsConverter = new MessageJsonConverter<OptionsMessage>("options");
+
+        public async Task SendOptions(OptionsMessage options)
+        {
+            var message = JsonConvert.SerializeObject(options, optionsConverter);
+            var buffer = Encoding.ASCII.GetBytes(message);
+            await Task.Factory.FromAsync(
+                this.socket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, null, null),
+                this.socket.EndSend);
+        }
 
         private async Task ConnectToServer(string address, int port)
         {
@@ -68,6 +81,12 @@
                         await Task.Factory.FromAsync(
                             this.socket.BeginConnect(address, port, p => { }, null),
                             this.socket.EndConnect);
+
+                        var handler = this.Connected;
+                        if (handler != null)
+                        {
+                            handler(this, EventArgs.Empty);
+                        }
 
                         await Task.Run(() => this.ReceiveMessages());
                     }

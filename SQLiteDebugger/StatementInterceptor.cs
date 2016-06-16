@@ -57,6 +57,11 @@
 
             set
             {
+                if (this.collectResults == value)
+                {
+                    return;
+                }
+
                 this.collectResults = value;
                 if (this.collectResults)
                 {
