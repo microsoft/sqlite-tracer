@@ -56,11 +56,9 @@
 
         public event EventHandler<ProfileEventArgs> ProfileReceived;
 
-        private static MessageJsonConverter<OptionsMessage> optionsConverter = new MessageJsonConverter<OptionsMessage>("options");
-
         public async Task SendOptions(OptionsMessage options)
         {
-            var message = JsonConvert.SerializeObject(options, optionsConverter);
+            var message = JsonConvert.SerializeObject(options);
             var buffer = Encoding.ASCII.GetBytes(message);
             await Task.Factory.FromAsync(
                 this.socket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, null, null),
@@ -127,19 +125,19 @@
 
                     var message = JObject.Load(jsonReader);
                     var reader = message.CreateReader();
-                    switch (message.Value<string>("type"))
+                    switch (message.Value<string>("Type"))
                     {
-                        case "log":
+                        case LogMessage.Type:
                             var logMessage = serializer.Deserialize<LogMessage>(reader);
                             this.OnLogReceived(logMessage);
                             break;
 
-                        case "trace":
+                        case TraceMessage.Type:
                             var traceMessage = serializer.Deserialize<TraceMessage>(reader);
                             this.OnTraceReceived(traceMessage);
                             break;
 
-                        case "profile":
+                        case ProfileMessage.Type:
                             var profileMessage = serializer.Deserialize<ProfileMessage>(reader);
                             this.OnProfileReceived(profileMessage);
                             break;

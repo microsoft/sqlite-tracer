@@ -96,9 +96,9 @@ namespace SQLiteDebugger
 
                     var message = JObject.Load(jsonReader);
                     var reader = message.CreateReader();
-                    switch (message.Value<string>("type"))
+                    switch (message.Value<string>("Type"))
                     {
-                        case "options":
+                        case OptionsMessage.Type:
                             var options = serializer.Deserialize<OptionsMessage>(reader);
                             this.interceptor.CollectPlan = options.Plan;
                             this.interceptor.CollectResults = options.Results;
@@ -108,8 +108,6 @@ namespace SQLiteDebugger
             }
         }
         
-        private static MessageJsonConverter<LogMessage> logConverter = new MessageJsonConverter<LogMessage>("log");
-
         public void SendLog(string message)
         {
             var data = new LogMessage
@@ -118,11 +116,9 @@ namespace SQLiteDebugger
                 Message = message
             };
 
-            var json = JsonConvert.SerializeObject(data, logConverter);
+            var json = JsonConvert.SerializeObject(data);
             this.clients.ForEach(s => this.Send(s, json));
         }
-
-        private static MessageJsonConverter<TraceMessage> traceConverter = new MessageJsonConverter<TraceMessage>("trace");
 
         public void SendTrace(int id, string query, string plan = null)
         {
@@ -132,11 +128,9 @@ namespace SQLiteDebugger
                 Query = query, Plan = plan
             };
 
-            var json = JsonConvert.SerializeObject(data, traceConverter);
+            var json = JsonConvert.SerializeObject(data);
             this.clients.ForEach(s => this.Send(s, json));
         }
-
-        private static MessageJsonConverter<ProfileMessage> profileConverter = new MessageJsonConverter<ProfileMessage>("profile");
 
         public void SendProfile(int id, TimeSpan duration, DataTable results)
         {
@@ -146,7 +140,7 @@ namespace SQLiteDebugger
                 Duration = duration, Results = results
             };
 
-            var json = JsonConvert.SerializeObject(data, profileConverter);
+            var json = JsonConvert.SerializeObject(data);
             this.clients.ForEach(s => this.Send(s, json));
         }
 
@@ -155,7 +149,7 @@ namespace SQLiteDebugger
             var socket = client.Item1;
             try
             {
-                byte[] buffer = Encoding.ASCII.GetBytes(message);
+                var buffer = Encoding.ASCII.GetBytes(message);
                 socket.Send(buffer, 0, buffer.Length, SocketFlags.None);
             }
             catch (Exception ex)

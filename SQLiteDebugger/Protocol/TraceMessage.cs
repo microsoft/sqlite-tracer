@@ -1,12 +1,13 @@
 ﻿namespace SQLiteDebugger
 {
     using Newtonsoft.Json;
-    using Newtonsoft.Json.Linq;
     using System;
-    using System.Data;
 
     public class TraceMessage
     {
+        [JsonProperty]
+        public const string Type = "trace";
+
         public string Database { get; set; }
 
         public int Id { get; set; }

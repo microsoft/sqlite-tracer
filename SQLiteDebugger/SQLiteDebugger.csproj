@@ -46,7 +46,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DebugClient.cs" />
-    <Compile Include="Protocol\MessageJsonConverter.cs" />
     <Compile Include="Protocol\OptionsMessage.cs" />
     <Compile Include="Protocol\ProfileMessage.cs" />
     <Compile Include="Protocol\TraceMessage.cs" />
