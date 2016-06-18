@@ -12,11 +12,10 @@
     using System.Threading;
     using System.Threading.Tasks;
 
-    public class DebugClient : IDisposable
+    public class DebugClient
     {
-        private Socket socket;
+        private BinaryWriter clientWriter;
         private Task connectTask;
-        private CancellationTokenSource cancel = new CancellationTokenSource();
 
         public void Connect(string address, int port)
         {
@@ -33,21 +32,6 @@
             this.connectTask = this.ConnectToServer(address, port);
         }
 
-        public void Dispose()
-        {
-            this.Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                this.cancel.Cancel();
-                this.cancel.Dispose();
-            }
-        }
-
         public event EventHandler<EventArgs> Connected;
 
         public event EventHandler<LogEventArgs> LogReceived;
@@ -56,29 +40,53 @@
 
         public event EventHandler<ProfileEventArgs> ProfileReceived;
 
-        public async Task SendOptions(OptionsMessage options)
+        public void SendOptions(bool plan, bool results, bool pause)
         {
-            var message = JsonConvert.SerializeObject(options);
-            var buffer = Encoding.ASCII.GetBytes(message);
-            await Task.Factory.FromAsync(
-                this.socket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, null, null),
-                this.socket.EndSend);
+            var data = new OptionsMessage
+            {
+                Plan = plan, Results = results, Pause = pause
+            };
+
+            var json = JsonConvert.SerializeObject(data);
+            this.Send(json);
+        }
+
+        private void Send(string message)
+        {
+            var length = Encoding.UTF8.GetByteCount(message);
+            var buffer = new byte[4 + length];
+            Encoding.UTF8.GetBytes(message, 0, message.Length, buffer, 4);
+            BitConverter.GetBytes(length).CopyTo(buffer, 0);
+
+            lock (this.clientWriter)
+            {
+                try
+                {
+                    this.clientWriter.Write(buffer);
+                }
+                catch (Exception ex)
+                {
+                    if (!(ex is IOException || ex is ObjectDisposedException))
+                    {
+                        throw;
+                    }
+
+                    this.clientWriter.Close();
+                }
+            }
         }
 
         private async Task ConnectToServer(string address, int port)
         {
-            var ct = this.cancel.Token;
             while (true)
             {
-                ct.ThrowIfCancellationRequested();
-
-                using (this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+                // disable Nagle algorithm to prevent small commands from waiting for the segment to fill up
+                using (var client = new TcpClient() { NoDelay = true })
                 {
                     try
                     {
-                        await Task.Factory.FromAsync(
-                            this.socket.BeginConnect(address, port, p => { }, null),
-                            this.socket.EndConnect);
+                        await client.ConnectAsync(address, port);
+                        this.clientWriter = new BinaryWriter(client.GetStream());
 
                         var handler = this.Connected;
                         if (handler != null)
@@ -86,59 +94,52 @@
                             handler(this, EventArgs.Empty);
                         }
 
-                        await Task.Run(() => this.ReceiveMessages());
+                        await Task.Run(() => this.ReceiveMessages(client));
                     }
                     catch (SocketException)
                     {
-                        this.socket.Close();
                         continue;
                     }
                 }
             }
         }
 
-        [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times", Justification = "Nested usings")]
-        private void ReceiveMessages()
+        private void ReceiveMessages(TcpClient client)
         {
             var serializer = new JsonSerializer();
 
-            using (var stream = new NetworkStream(this.socket))
-            using (var streamReader = new StreamReader(stream))
-            using (var jsonReader = new JsonTextReader(streamReader) { SupportMultipleContent = true })
+            using (var reader = new BinaryReader(client.GetStream()))
             {
-                var ct = this.cancel.Token;
                 while (true)
                 {
-                    ct.ThrowIfCancellationRequested();
-
+                    string text;
                     try
                     {
-                        if (!jsonReader.Read())
-                        {
-                            break;
-                        }
+                        var length = reader.ReadInt32();
+                        var data = reader.ReadBytes(length);
+                        text = Encoding.UTF8.GetString(data);
                     }
                     catch (IOException)
                     {
                         break;
                     }
 
-                    var message = JObject.Load(jsonReader);
-                    var reader = message.CreateReader();
+                    var message = JObject.Parse(text);
+                    var jsonReader = message.CreateReader();
                     switch (message.Value<string>("Type"))
                     {
                         case LogMessage.Type:
-                            var logMessage = serializer.Deserialize<LogMessage>(reader);
+                            var logMessage = serializer.Deserialize<LogMessage>(jsonReader);
                             this.OnLogReceived(logMessage);
                             break;
 
                         case TraceMessage.Type:
-                            var traceMessage = serializer.Deserialize<TraceMessage>(reader);
+                            var traceMessage = serializer.Deserialize<TraceMessage>(jsonReader);
                             this.OnTraceReceived(traceMessage);
                             break;
 
                         case ProfileMessage.Type:
-                            var profileMessage = serializer.Deserialize<ProfileMessage>(reader);
+                            var profileMessage = serializer.Deserialize<ProfileMessage>(jsonReader);
                             this.OnProfileReceived(profileMessage);
                             break;
 

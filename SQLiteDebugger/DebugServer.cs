@@ -12,14 +12,14 @@ namespace SQLiteDebugger
     using System.Net;
     using System.Net.Sockets;
     using System.Text;
-    using System.Threading;
     using System.Threading.Tasks;
 
     public class DebugServer : IDebugTraceSender, IDisposable
     {
         private TcpListener listener;
         private Task listenTask;
-        private List<Tuple<Socket, CancellationTokenSource, Task>> clients = new List<Tuple<Socket, CancellationTokenSource, Task>>();
+        private List<BinaryWriter> clients = new List<BinaryWriter>();
+
         private StatementInterceptor interceptor;
 
         public void Listen(int port)
@@ -31,6 +31,7 @@ namespace SQLiteDebugger
 
             this.listener = new TcpListener(IPAddress.Any, port);
             this.listenTask = this.ListenForClients();
+
             this.interceptor = new StatementInterceptor(this);
         }
 
@@ -45,13 +46,12 @@ namespace SQLiteDebugger
             if (disposing)
             {
                 this.listener.Stop();
-                foreach (var client in this.clients)
+                lock (this.clients)
                 {
-                    client.Item2.Cancel();
-                    client.Item2.Dispose();
-
-                    client.Item1.Close();
-                    client.Item1.Dispose();
+                    foreach (var client in this.clients)
+                    {
+                        client.Close();
+                    }
                 }
             }
         }
@@ -61,45 +61,44 @@ namespace SQLiteDebugger
             this.listener.Start();
             while (true)
             {
-                var socket = await this.listener.AcceptSocketAsync();
-                var cancel = new CancellationTokenSource();
-                this.clients.Add(Tuple.Create(
-                    socket,
-                    cancel,
-                    Task.Run(() => this.ReceiveMessages(socket, cancel.Token))));
+                var client = await this.listener.AcceptTcpClientAsync();
+                client.NoDelay = true;
+
+                var clientTask = Task.Run(() => this.ReceiveMessages(client));
+
+                var writer = new BinaryWriter(client.GetStream());
+                lock (this.clients)
+                {
+                    this.clients.Add(writer);
+                }
             }
         }
 
-        [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times", Justification = "Nested usings")]
-        private void ReceiveMessages(Socket client, CancellationToken ct)
+        private void ReceiveMessages(TcpClient client)
         {
             var serializer = new JsonSerializer();
-            using (var stream = new NetworkStream(client))
-            using (var streamReader = new StreamReader(stream))
-            using (var jsonReader = new JsonTextReader(streamReader) { SupportMultipleContent = true })
+            using (var reader = new BinaryReader(client.GetStream()))
             {
                 while (true)
                 {
-                    ct.ThrowIfCancellationRequested();
-
+                    string text;
                     try
                     {
-                        if (!jsonReader.Read())
-                        {
-                            break;
-                        }
+                        var length = reader.ReadInt32();
+                        var data = reader.ReadBytes(length);
+                        text = Encoding.UTF8.GetString(data);
                     }
                     catch (IOException)
                     {
                         break;
                     }
 
-                    var message = JObject.Load(jsonReader);
-                    var reader = message.CreateReader();
+                    var message = JObject.Parse(text);
+                    var jsonReader = message.CreateReader();
                     switch (message.Value<string>("Type"))
                     {
                         case OptionsMessage.Type:
-                            var options = serializer.Deserialize<OptionsMessage>(reader);
+                            var options = serializer.Deserialize<OptionsMessage>(jsonReader);
                             this.interceptor.CollectPlan = options.Plan;
                             this.interceptor.CollectResults = options.Results;
                             break;
@@ -117,7 +116,7 @@ namespace SQLiteDebugger
             };
 
             var json = JsonConvert.SerializeObject(data);
-            this.clients.ForEach(s => this.Send(s, json));
+            this.Send(json);
         }
 
         public void SendTrace(int id, string query, string plan = null)
@@ -129,7 +128,7 @@ namespace SQLiteDebugger
             };
 
             var json = JsonConvert.SerializeObject(data);
-            this.clients.ForEach(s => this.Send(s, json));
+            this.Send(json);
         }
 
         public void SendProfile(int id, TimeSpan duration, DataTable results)
@@ -141,26 +140,37 @@ namespace SQLiteDebugger
             };
 
             var json = JsonConvert.SerializeObject(data);
-            this.clients.ForEach(s => this.Send(s, json));
+            this.Send(json);
         }
 
-        private void Send(Tuple<Socket, CancellationTokenSource, Task> client, string message)
+        private void Send(string message)
         {
-            var socket = client.Item1;
-            try
-            {
-                var buffer = Encoding.ASCII.GetBytes(message);
-                socket.Send(buffer, 0, buffer.Length, SocketFlags.None);
-            }
-            catch (Exception ex)
-            {
-                if (!(ex is SocketException || ex is ObjectDisposedException))
-                {
-                    throw;
-                }
+            var length = Encoding.UTF8.GetByteCount(message);
+            var buffer = new byte[4 + length];
+            Encoding.UTF8.GetBytes(message, 0, message.Length, buffer, 4);
+            BitConverter.GetBytes(length).CopyTo(buffer, 0);
 
-                socket.Dispose();
-                this.clients.Remove(client);
+            lock (this.clients)
+            {
+                for (var i = 0; i < this.clients.Count; i++)
+                {
+                    var client = this.clients[i];
+                    try
+                    {
+                        client.Write(buffer);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (!(ex is IOException || ex is ObjectDisposedException))
+                        {
+                            throw;
+                        }
+
+                        client.Close();
+                        this.clients.RemoveAt(i);
+                        i -= 1;
+                    }
+                }
             }
         }
     }
