@@ -31,6 +31,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="PresentationCore" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -41,12 +42,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DelegateCommand.cs" />
+    <Compile Include="MVVM\CommandBase.cs" />
+    <Compile Include="MVVM\DelegateCommand.cs" />
     <Compile Include="EventAggregator\DelegateWrapper.cs" />
     <Compile Include="EventAggregator\EventAggregator.cs" />
     <Compile Include="EventAggregator\Event.cs" />
     <Compile Include="EventAggregator\IDispatcher.cs" />
-    <Compile Include="ObservableObject.cs" />
+    <Compile Include="MVVM\ObservableObject.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

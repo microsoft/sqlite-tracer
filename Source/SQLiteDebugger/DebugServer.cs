@@ -102,6 +102,11 @@ namespace SQLiteDebugger
                             this.interceptor.CollectPlan = options.Plan;
                             this.interceptor.CollectResults = options.Results;
                             break;
+
+                        case QueryMessage.Type:
+                            var query = serializer.Deserialize<QueryMessage>(jsonReader);
+                            this.interceptor.Exec(query.Connection, query.Filename, query.Query);
+                            break;
                     }
                 }
             }
@@ -122,7 +127,7 @@ namespace SQLiteDebugger
         {
             var data = new OpenMessage
             {
-                Database = db, Filename = path
+                Id = db, Filename = path
             };
 
             var json = JsonConvert.SerializeObject(data);
@@ -133,7 +138,7 @@ namespace SQLiteDebugger
         {
             var data = new CloseMessage
             {
-                Database = db
+                Id = db
             };
 
             var json = JsonConvert.SerializeObject(data);
@@ -144,7 +149,7 @@ namespace SQLiteDebugger
         {
             var data = new TraceMessage
             {
-                Time = DateTime.Now, Id = id, Database = db, Query = query, Plan = plan
+                Time = DateTime.Now, Id = id, Connection = db, Query = query, Plan = plan
             };
 
             var json = JsonConvert.SerializeObject(data);

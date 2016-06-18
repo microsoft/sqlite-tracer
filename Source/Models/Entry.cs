@@ -11,6 +11,8 @@ namespace SQLiteLogViewer.Models
 
     public class Entry
     {
+        public EntryType Type { get; set; }
+
         public int ID { get; set; }
 
         public int Database { get; set; }
@@ -26,5 +28,11 @@ namespace SQLiteLogViewer.Models
         public string Plan { get; set; }
 
         public DataTable Results { get; set; }
+    }
+
+    public enum EntryType
+    {
+        Message,
+        Query,
     }
 }

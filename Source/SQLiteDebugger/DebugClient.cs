@@ -49,6 +49,17 @@
             this.Send(json);
         }
 
+        public void SendQuery(int db, string filename, string query)
+        {
+            var data = new QueryMessage
+            {
+                Connection = db, Filename = filename, Query = query
+            };
+
+            var json = JsonConvert.SerializeObject(data);
+            this.Send(json);
+        }
+
         private void Send(string message)
         {
             var length = Encoding.UTF8.GetByteCount(message);

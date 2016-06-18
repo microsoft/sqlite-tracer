@@ -8,6 +8,8 @@
 
     internal delegate int SQLiteEntryPoint(IntPtr db, ref string errMsg, IntPtr api);
 
+	internal delegate int SQLiteExec(IntPtr data, int columns, string[] names, string[] values);
+
     internal delegate void SQLiteClose(IntPtr data, IntPtr db);
 
     internal delegate void SQLiteTraceV2(IntPtr data, IntPtr stmt, string query);
@@ -22,13 +24,27 @@
         internal const int SQLITE_ROW = 100;
         internal const int SQLITE_DONE = 101;
 
+        internal const int SQLITE_OPEN_READONLY = 1;
+        internal const int SQLITE_OPEN_READWRITE = 2;
+        internal const int SQLITE_OPEN_CREATE = 4;
+
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int sqlite3_auto_extension(SQLiteEntryPoint entryPoint);
+
+        [SuppressMessage("Microsoft.Globalization", "CA2101:SpecifyMarshalingForPInvokeStringArguments", Justification = "Technically should be UTF-8")]
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int sqlite3_open_v2(string filename, out IntPtr db, int flags, string vfs);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int sqlite3_close_v2(IntPtr db);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr sqlite3_errmsg(IntPtr db);
 
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr sqlite3_close_handler(IntPtr db, SQLiteClose close, IntPtr data);
 
-        [SuppressMessage("Microsoft.Globalization", "CA2101:SpecifyMarshalingForPInvokeStringArguments", MessageId = "1", Justification = "Technically should be UTF-8")]
+        [SuppressMessage("Microsoft.Globalization", "CA2101:SpecifyMarshalingForPInvokeStringArguments", Justification = "Technically should be UTF-8")]
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr sqlite3_db_filename(IntPtr db, string name);
 
@@ -41,7 +57,11 @@
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr sqlite3_profile(IntPtr db, SQLiteProfile profile, IntPtr data);
 
-        [SuppressMessage("Microsoft.Globalization", "CA2101:SpecifyMarshalingForPInvokeStringArguments", MessageId = "1", Justification = "Technically should be UTF-8")]
+        [SuppressMessage("Microsoft.Globalization", "CA2101:SpecifyMarshalingForPInvokeStringArguments", Justification = "Technically should be UTF-8")]
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int sqlite3_exec(IntPtr db, string sql, SQLiteExec callback, IntPtr data, IntPtr err);
+
+        [SuppressMessage("Microsoft.Globalization", "CA2101:SpecifyMarshalingForPInvokeStringArguments", Justification = "Technically should be UTF-8")]
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int sqlite3_prepare_v2(IntPtr db, string sql, int len, out IntPtr stmt, IntPtr tail);
 

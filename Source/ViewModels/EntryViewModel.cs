@@ -26,6 +26,11 @@ namespace SQLiteLogViewer.ViewModels
             this.entry = entry;
         }
 
+        public EntryType Type
+        {
+            get { return this.entry.Type; }
+        }
+
         public int ID
         {
             get { return this.entry.ID; }
@@ -39,6 +44,11 @@ namespace SQLiteLogViewer.ViewModels
         public string Filename
         {
             get { return Path.GetFileNameWithoutExtension(this.entry.Filename); }
+        }
+
+        internal string Filepath
+        {
+            get { return this.entry.Filename; }
         }
 
         public DateTime Start

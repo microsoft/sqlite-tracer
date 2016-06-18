@@ -4,6 +4,8 @@
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Data;
+    using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Linq;
     using System.Runtime.InteropServices;
@@ -21,7 +23,7 @@
         private SQLiteProfile profileHandler;
 
         private int currentDbId = 0;
-        private ConcurrentDictionary<IntPtr, int> dbs = new ConcurrentDictionary<IntPtr, int>();
+        private ConcurrentDictionary<IntPtr, int> connections = new ConcurrentDictionary<IntPtr, int>();
 
         private int currentStmtId = 0;
         private ConcurrentDictionary<IntPtr, int> queries = new ConcurrentDictionary<IntPtr, int>();
@@ -68,14 +70,14 @@
                 this.collectResults = value;
                 if (this.collectResults)
                 {
-                    foreach (var db in this.dbs.Keys)
+                    foreach (var db in this.connections.Keys)
                     {
                         UnsafeNativeMethods.sqlite3_row(db, this.rowHandler, IntPtr.Zero);
                     }
                 }
                 else
                 {
-                    foreach (var db in this.dbs.Keys)
+                    foreach (var db in this.connections.Keys)
                     {
                         UnsafeNativeMethods.sqlite3_row(db, null, IntPtr.Zero);
                     }
@@ -83,10 +85,57 @@
             }
         }
 
+        [SuppressMessage("Microsoft.Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "Debug text")]
+        public void Exec(int connectionId, string filename, string sql)
+        {
+            if (sql == null)
+            {
+                throw new ArgumentNullException("sql");
+            }
+
+            var dispose = false;
+            int rc;
+
+            var connection = this.connections.FirstOrDefault((c) => c.Value == connectionId).Key;
+            if (connection == IntPtr.Zero)
+            {
+                dispose = true;
+
+                var flags = UnsafeNativeMethods.SQLITE_OPEN_READWRITE;
+                rc = UnsafeNativeMethods.sqlite3_open_v2(filename, out connection, flags, null);
+                if (rc != UnsafeNativeMethods.SQLITE_OK)
+                {
+                    this.server.SendLog(string.Format(CultureInfo.InvariantCulture, "[Error] Could not open database {0}", filename));
+                    return;
+                }
+            }
+
+            rc = UnsafeNativeMethods.sqlite3_exec(connection, sql, null, IntPtr.Zero, IntPtr.Zero);
+            if (rc != UnsafeNativeMethods.SQLITE_OK)
+            {
+                var error = UTF8ToString(UnsafeNativeMethods.sqlite3_errmsg(connection));
+                var message = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "[Error] Could not execute statement '{0}'\n{1}",
+                    sql.Replace(Environment.NewLine, " ").Replace('\n', ' '),
+                    error);
+                this.server.SendLog(message);
+            }
+
+            if (dispose)
+            {
+                rc = UnsafeNativeMethods.sqlite3_close_v2(connection);
+                if (rc != UnsafeNativeMethods.SQLITE_OK)
+                {
+                    throw new InvalidOperationException("SQLite could not close the connection");
+                }
+            }
+        }
+
         private int OnConnect(IntPtr db, ref string errMsg, IntPtr api)
         {
             var id = Interlocked.Increment(ref this.currentDbId);
-            this.dbs.TryAdd(db, id);
+            this.connections.TryAdd(db, id);
             UnsafeNativeMethods.sqlite3_close_handler(db, this.closeHandler, IntPtr.Zero);
 
             UnsafeNativeMethods.sqlite3_trace_v2(db, this.traceHandler, IntPtr.Zero);
@@ -106,7 +155,7 @@
         private void OnClose(IntPtr data, IntPtr db)
         {
             int id;
-            if (!this.dbs.TryRemove(db, out id))
+            if (!this.connections.TryRemove(db, out id))
             {
                 return;
             }
@@ -133,7 +182,7 @@
             }
 
             int db = 0;
-            this.dbs.TryGetValue(UnsafeNativeMethods.sqlite3_db_handle(stmt), out db);
+            this.connections.TryGetValue(UnsafeNativeMethods.sqlite3_db_handle(stmt), out db);
             this.server.SendTrace(id, db, sql, plan);
 
             if (this.CollectResults)

@@ -13,7 +13,6 @@ namespace SQLiteLogViewer.ViewModels
     using System.Collections.ObjectModel;
     using System.Collections.Specialized;
     using System.Data;
-    using System.IO;
     using System.Linq;
     using System.Windows;
     using Toolkit;
@@ -32,7 +31,8 @@ namespace SQLiteLogViewer.ViewModels
         private EntryViewModel selectedEntry;
         private Dictionary<int, EntryViewModel> pendingEntries = new Dictionary<int, EntryViewModel>();
 
-        private Dictionary<int, string> dbs = new Dictionary<int, string>();
+        private Dictionary<int, string> connections = new Dictionary<int, string>();
+        private ReplayCommand replay;
 
         public LogViewModel(EventAggregator events, int port)
         {
@@ -42,6 +42,8 @@ namespace SQLiteLogViewer.ViewModels
             }
 
             this.events = events;
+
+            this.replay = new ReplayCommand(this);
 
             this.Entries = new ObservableCollection<EntryViewModel>();
             this.log.Entries.CollectionChanged += this.Log_CollectionChanged;
@@ -109,6 +111,48 @@ namespace SQLiteLogViewer.ViewModels
             this.client.SendOptions(this.collectPlan, this.collectResults, false);
         }
 
+        public CommandBase Replay
+        {
+            get { return this.replay; }
+        }
+
+        private class ReplayCommand : CommandBase
+        {
+            private LogViewModel owner;
+
+            public ReplayCommand(LogViewModel owner)
+            {
+                this.owner = owner;
+            }
+
+            public override bool CanExecute(object parameter)
+            {
+                var entry = parameter as EntryViewModel;
+                if (entry == null)
+                {
+                    return false;
+                }
+
+                if (entry.Type != EntryType.Query)
+                {
+                    return false;
+                }
+
+                return true;
+            }
+
+            public override void Execute(object parameter)
+            {
+                if (!this.CanExecute(parameter))
+                {
+                    throw new ArgumentException("Selected item is not a query", "parameter");
+                }
+
+                var entry = parameter as EntryViewModel;
+                this.owner.client.SendQuery(entry.Database, entry.Filepath, entry.Text);
+            }
+        }
+
         private void Log_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             switch (e.Action)
@@ -143,6 +187,7 @@ namespace SQLiteLogViewer.ViewModels
         {
             var entry = new Entry
             {
+                Type = EntryType.Message,
                 Start = message.Time,
                 End = message.Time,
                 Text = message.Message
@@ -153,21 +198,22 @@ namespace SQLiteLogViewer.ViewModels
 
         private void OpenReceived(OpenMessage open)
         {
-            this.dbs.Add(open.Database, open.Filename);
+            this.connections.Add(open.Id, open.Filename);
         }
 
         private void CloseReceived(CloseMessage close)
         {
-            this.dbs.Remove(close.Database);
+            this.connections.Remove(close.Id);
         }
 
         private void TraceReceived(TraceMessage trace)
         {
             var entry = new Entry
             {
+                Type = EntryType.Query,
                 ID = trace.Id,
-                Database = trace.Database,
-                Filename = this.dbs[trace.Database],
+                Database = trace.Connection,
+                Filename = this.connections[trace.Connection],
                 Start = trace.Time,
                 Text = trace.Query,
                 Plan = trace.Plan

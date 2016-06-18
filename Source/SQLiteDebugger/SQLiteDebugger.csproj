@@ -51,6 +51,7 @@
     <Compile Include="Protocol\OpenMessage.cs" />
     <Compile Include="Protocol\OptionsMessage.cs" />
     <Compile Include="Protocol\ProfileMessage.cs" />
+    <Compile Include="Protocol\QueryMessage.cs" />
     <Compile Include="Protocol\TraceMessage.cs" />
     <Compile Include="Protocol\LogMessage.cs" />
     <Compile Include="IDebugTraceSender.cs" />

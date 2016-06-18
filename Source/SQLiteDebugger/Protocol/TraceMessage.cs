@@ -12,7 +12,7 @@
 
         public int Id { get; set; }
 
-        public int Database { get; set; }
+        public int Connection { get; set; }
 
         public string Query { get; set; }
 

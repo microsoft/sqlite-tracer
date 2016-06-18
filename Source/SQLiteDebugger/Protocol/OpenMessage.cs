@@ -7,7 +7,7 @@
         [JsonProperty]
         public const string Type = "open";
 
-        public int Database { get; set; }
+        public int Id { get; set; }
 
         public string Filename { get; set; }
     }

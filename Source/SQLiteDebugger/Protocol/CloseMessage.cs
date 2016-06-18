@@ -7,6 +7,6 @@
         [JsonProperty]
         public const string Type = "close";
 
-        public int Database { get; set; }
+        public int Id { get; set; }
     }
 }
