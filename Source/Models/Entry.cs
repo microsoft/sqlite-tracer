@@ -13,6 +13,10 @@ namespace SQLiteLogViewer.Models
     {
         public int ID { get; set; }
 
+        public int Database { get; set; }
+
+        public string Filename { get; set; }
+
         public DateTime Start { get; set; }
 
         public DateTime End { get; set; }

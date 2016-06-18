@@ -15,16 +15,18 @@
         private DebugServer server;
 
         private SQLiteEntryPoint connectHandler;
+        private SQLiteClose closeHandler;
         private SQLiteTraceV2 traceHandler;
         private SQLiteRow rowHandler;
         private SQLiteProfile profileHandler;
 
-        private bool collectResults = false;
-        private List<IntPtr> dbs = new List<IntPtr>();
+        private int currentDbId = 0;
+        private ConcurrentDictionary<IntPtr, int> dbs = new ConcurrentDictionary<IntPtr, int>();
 
-        private int currentId = 0;
+        private int currentStmtId = 0;
         private ConcurrentDictionary<IntPtr, int> queries = new ConcurrentDictionary<IntPtr, int>();
 
+        private bool collectResults = false;
         private ConcurrentDictionary<IntPtr, DataTable> results = new ConcurrentDictionary<IntPtr, DataTable>();
 
         public StatementInterceptor(DebugServer server)
@@ -36,6 +38,7 @@
 
             this.server = server;
             this.connectHandler = this.OnConnect;
+            this.closeHandler = this.OnClose;
             this.traceHandler = this.OnTrace;
             this.rowHandler = this.OnRow;
             this.profileHandler = this.OnProfile;
@@ -65,14 +68,14 @@
                 this.collectResults = value;
                 if (this.collectResults)
                 {
-                    foreach (var db in this.dbs)
+                    foreach (var db in this.dbs.Keys)
                     {
                         UnsafeNativeMethods.sqlite3_row(db, this.rowHandler, IntPtr.Zero);
                     }
                 }
                 else
                 {
-                    foreach (var db in this.dbs)
+                    foreach (var db in this.dbs.Keys)
                     {
                         UnsafeNativeMethods.sqlite3_row(db, null, IntPtr.Zero);
                     }
@@ -82,6 +85,10 @@
 
         private int OnConnect(IntPtr db, ref string errMsg, IntPtr api)
         {
+            var id = Interlocked.Increment(ref this.currentDbId);
+            this.dbs.TryAdd(db, id);
+            UnsafeNativeMethods.sqlite3_close_handler(db, this.closeHandler, IntPtr.Zero);
+
             UnsafeNativeMethods.sqlite3_trace_v2(db, this.traceHandler, IntPtr.Zero);
             UnsafeNativeMethods.sqlite3_profile(db, this.profileHandler, IntPtr.Zero);
 
@@ -90,7 +97,21 @@
                 UnsafeNativeMethods.sqlite3_row(db, this.rowHandler, IntPtr.Zero);
             }
 
+            var path = UTF8ToString(UnsafeNativeMethods.sqlite3_db_filename(db, "main"));
+            this.server.SendOpen(id, path);
+
             return UnsafeNativeMethods.SQLITE_OK;
+        }
+
+        private void OnClose(IntPtr data, IntPtr db)
+        {
+            int id;
+            if (!this.dbs.TryRemove(db, out id))
+            {
+                return;
+            }
+
+            this.server.SendClose(id);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "Object is stored in hash table")]
@@ -102,7 +123,7 @@
                 return;
             }
 
-            var id = this.queries.GetOrAdd(stmt, (k) => Interlocked.Increment(ref this.currentId));
+            var id = this.queries.GetOrAdd(stmt, (k) => Interlocked.Increment(ref this.currentStmtId));
 
             string plan = null;
             if (this.CollectPlan)
@@ -111,7 +132,9 @@
                 plan = string.Join("\n", lines);
             }
 
-            this.server.SendTrace(id, sql, plan);
+            int db = 0;
+            this.dbs.TryGetValue(UnsafeNativeMethods.sqlite3_db_handle(stmt), out db);
+            this.server.SendTrace(id, db, sql, plan);
 
             if (this.CollectResults)
             {

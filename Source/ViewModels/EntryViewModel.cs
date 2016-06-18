@@ -9,6 +9,7 @@ namespace SQLiteLogViewer.ViewModels
     using Models;
     using System;
     using System.Data;
+    using System.IO;
     using Toolkit;
 
     public class EntryViewModel : ObservableObject
@@ -28,6 +29,16 @@ namespace SQLiteLogViewer.ViewModels
         public int ID
         {
             get { return this.entry.ID; }
+        }
+
+        public int Database
+        {
+            get { return this.entry.Database; }
+        }
+
+        public string Filename
+        {
+            get { return Path.GetFileNameWithoutExtension(this.entry.Filename); }
         }
 
         public DateTime Start

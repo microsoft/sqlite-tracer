@@ -9,11 +9,9 @@
         [JsonProperty]
         public const string Type = "profile";
 
-        public string Database { get; set; }
+        public DateTime Time { get; set; }
 
         public int Id { get; set; }
-
-        public DateTime Time { get; set; }
 
         public TimeSpan Duration { get; set; }
 

@@ -127,6 +127,16 @@
                             this.events.Publish<LogMessage>(logMessage);
                             break;
 
+                        case OpenMessage.Type:
+                            var openMessage = serializer.Deserialize<OpenMessage>(jsonReader);
+                            this.events.Publish<OpenMessage>(openMessage);
+                            break;
+
+                        case CloseMessage.Type:
+                            var closeMessage = serializer.Deserialize<CloseMessage>(jsonReader);
+                            this.events.Publish<CloseMessage>(closeMessage);
+                            break;
+
                         case TraceMessage.Type:
                             var traceMessage = serializer.Deserialize<TraceMessage>(jsonReader);
                             this.events.Publish<TraceMessage>(traceMessage);

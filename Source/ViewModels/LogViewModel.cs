@@ -13,7 +13,7 @@ namespace SQLiteLogViewer.ViewModels
     using System.Collections.ObjectModel;
     using System.Collections.Specialized;
     using System.Data;
-    using System.Diagnostics.CodeAnalysis;
+    using System.IO;
     using System.Linq;
     using System.Windows;
     using Toolkit;
@@ -32,6 +32,8 @@ namespace SQLiteLogViewer.ViewModels
         private EntryViewModel selectedEntry;
         private Dictionary<int, EntryViewModel> pendingEntries = new Dictionary<int, EntryViewModel>();
 
+        private Dictionary<int, string> dbs = new Dictionary<int, string>();
+
         public LogViewModel(EventAggregator events, int port)
         {
             if (events == null)
@@ -45,6 +47,9 @@ namespace SQLiteLogViewer.ViewModels
             this.log.Entries.CollectionChanged += this.Log_CollectionChanged;
 
             this.client = new DebugClient(events);
+
+            events.Subscribe<OpenMessage>(this.OpenReceived, ThreadAffinity.UIThread);
+            events.Subscribe<CloseMessage>(this.CloseReceived, ThreadAffinity.UIThread);
 
             events.Subscribe<ConnectEvent>((c) => this.SendOptions(), ThreadAffinity.PublisherThread);
             events.Subscribe<LogMessage>(this.LogReceived, ThreadAffinity.UIThread);
@@ -146,9 +151,27 @@ namespace SQLiteLogViewer.ViewModels
             this.log.Entries.Add(entry);
         }
 
+        private void OpenReceived(OpenMessage open)
+        {
+            this.dbs.Add(open.Database, open.Filename);
+        }
+
+        private void CloseReceived(CloseMessage close)
+        {
+            this.dbs.Remove(close.Database);
+        }
+
         private void TraceReceived(TraceMessage trace)
         {
-            var entry = new Entry { ID = trace.Id, Start = trace.Time, Text = trace.Query, Plan = trace.Plan };
+            var entry = new Entry
+            {
+                ID = trace.Id,
+                Database = trace.Database,
+                Filename = this.dbs[trace.Database],
+                Start = trace.Time,
+                Text = trace.Query,
+                Plan = trace.Plan
+            };
 
             this.log.Entries.Add(entry);
             this.pendingEntries.Add(entry.ID, this.Entries.Last());
