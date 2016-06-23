@@ -9,7 +9,7 @@ namespace Toolkit
     using System;
     using System.Windows.Input;
 
-    public class DelegateCommand : ICommand
+    public class DelegateCommand : CommandBase
     {
         private readonly Action action;
 
@@ -18,18 +18,18 @@ namespace Toolkit
             this.action = action;
         }
 
-        public event EventHandler CanExecuteChanged
+        public override event EventHandler CanExecuteChanged
         {
             add { }
             remove { }
         }
 
-        public void Execute(object parameter)
+        public override void Execute(object parameter)
         {
             this.action();
         }
 
-        public bool CanExecute(object parameter)
+        public override bool CanExecute(object parameter)
         {
             return true;
         }

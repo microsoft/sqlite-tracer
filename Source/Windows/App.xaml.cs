@@ -20,6 +20,8 @@ namespace SQLiteLogViewer
         {
             base.OnStartup(e);
 
+            this.ShutdownMode = ShutdownMode.OnMainWindowClose;
+
             this.Port = 3000;
             if (e != null && e.Args.Length > 0)
             {

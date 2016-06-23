@@ -32,7 +32,12 @@ namespace SQLiteLogViewer.ViewModels
         private Dictionary<int, EntryViewModel> pendingEntries = new Dictionary<int, EntryViewModel>();
 
         private Dictionary<int, string> connections = new Dictionary<int, string>();
+        private DelegateCommand query;
         private ReplayCommand replay;
+
+        private ConnectionViewModel selectedConnection;
+        private HashSet<string> databases = new HashSet<string>();
+        private DelegateCommand exec;
 
         public LogViewModel(EventAggregator events, int port)
         {
@@ -43,7 +48,13 @@ namespace SQLiteLogViewer.ViewModels
 
             this.events = events;
 
+            this.query = new DelegateCommand(() => this.Conductor.OpenQueryWindow());
             this.replay = new ReplayCommand(this);
+            this.exec = new DelegateCommand(() =>
+            {
+                var connection = this.SelectedConnection;
+                this.client.SendQuery(connection.Id, connection.Filename, this.QueryText);
+            });
 
             this.Entries = new ObservableCollection<EntryViewModel>();
             this.log.Entries.CollectionChanged += this.Log_CollectionChanged;
@@ -111,6 +122,13 @@ namespace SQLiteLogViewer.ViewModels
             this.client.SendOptions(this.collectPlan, this.collectResults, false);
         }
 
+        public IConductor Conductor { get; set; }
+
+        public CommandBase Query
+        {
+            get { return this.query; }
+        }
+
         public CommandBase Replay
         {
             get { return this.replay; }
@@ -151,6 +169,46 @@ namespace SQLiteLogViewer.ViewModels
                 var entry = parameter as EntryViewModel;
                 this.owner.client.SendQuery(entry.Database, entry.Filepath, entry.Text);
             }
+        }
+
+        public IEnumerable<ConnectionViewModel> Connections
+        {
+            get
+            {
+                return this.connections.Select((entry) => new ConnectionViewModel()
+                {
+                    Id = entry.Key,
+                    Filename = entry.Value
+                }).Concat(this.databases.Select((filename) => new ConnectionViewModel()
+                {
+                    Id = 0,
+                    Filename = filename
+                }));
+            }
+        }
+
+        public ConnectionViewModel SelectedConnection
+        {
+            get
+            {
+                return this.selectedConnection;
+            }
+
+            set
+            {
+                if (this.selectedConnection != value)
+                {
+                    this.selectedConnection = value;
+                    this.NotifyPropertyChanged("SelectedConnection");
+                }
+            }
+        }
+
+        public string QueryText { get; set; }
+
+        public CommandBase Exec
+        {
+            get { return this.exec; }
         }
 
         private void Log_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -199,11 +257,14 @@ namespace SQLiteLogViewer.ViewModels
         private void OpenReceived(OpenMessage open)
         {
             this.connections.Add(open.Id, open.Filename);
+            this.NotifyPropertyChanged("Connections");
         }
 
         private void CloseReceived(CloseMessage close)
         {
+            this.databases.Add(this.connections[close.Id]);
             this.connections.Remove(close.Id);
+            this.NotifyPropertyChanged("Connections");
         }
 
         private void TraceReceived(TraceMessage trace)
