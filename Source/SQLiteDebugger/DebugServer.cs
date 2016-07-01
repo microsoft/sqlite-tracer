@@ -101,11 +101,23 @@ namespace SQLiteDebugger
                             var options = serializer.Deserialize<OptionsMessage>(jsonReader);
                             this.interceptor.CollectPlan = options.Plan;
                             this.interceptor.CollectResults = options.Results;
+                            this.interceptor.Pause = options.Pause;
                             break;
 
                         case QueryMessage.Type:
                             var query = serializer.Deserialize<QueryMessage>(jsonReader);
                             this.interceptor.Exec(query.Connection, query.Filename, query.Query);
+                            break;
+
+                        case DebugMessage.Type:
+                            var debug = serializer.Deserialize<DebugMessage>(jsonReader);
+                            switch (debug.Action)
+                            {
+                                case DebugAction.Step:
+                                    this.interceptor.Step();
+                                    break;
+                            }
+
                             break;
                     }
                 }

@@ -49,6 +49,7 @@
     <Compile Include="DebugClient.cs" />
     <Compile Include="Protocol\CloseMessage.cs" />
     <Compile Include="Protocol\OpenMessage.cs" />
+    <Compile Include="Protocol\DebugMessage.cs" />
     <Compile Include="Protocol\OptionsMessage.cs" />
     <Compile Include="Protocol\ProfileMessage.cs" />
     <Compile Include="Protocol\QueryMessage.cs" />

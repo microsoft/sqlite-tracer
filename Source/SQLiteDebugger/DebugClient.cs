@@ -60,8 +60,24 @@
             this.Send(json);
         }
 
+        public void SendStep()
+        {
+            var data = new DebugMessage
+            {
+                Action = DebugAction.Step
+            };
+
+            var json = JsonConvert.SerializeObject(data);
+            this.Send(json);
+        }
+
         private void Send(string message)
         {
+            if (this.clientWriter == null)
+            {
+                return;
+            }
+
             var length = Encoding.UTF8.GetByteCount(message);
             var buffer = new byte[4 + length];
             Encoding.UTF8.GetBytes(message, 0, message.Length, buffer, 4);

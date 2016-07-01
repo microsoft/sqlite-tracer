@@ -48,6 +48,11 @@ namespace SQLiteLogViewer.ViewModels
 
             this.events = events;
 
+            this.Step = new DelegateCommand(() =>
+            {
+                this.client.SendStep();
+            });
+
             this.query = new DelegateCommand(() => this.Conductor.OpenQueryWindow());
             this.replay = new ReplayCommand(this);
             this.exec = new DelegateCommand(() =>
@@ -91,22 +96,24 @@ namespace SQLiteLogViewer.ViewModels
         public bool CollectPlan
         {
             get { return this.collectPlan; }
-            set { this.SetOption(ref this.collectPlan, value); }
+            set { this.SetOption(ref this.collectPlan, value, "CollectPlan"); }
         }
 
         public bool CollectResults
         {
             get { return this.collectResults; }
-            set { this.SetOption(ref this.collectResults, value); }
+            set { this.SetOption(ref this.collectResults, value, "CollectResults"); }
         }
 
         public bool Pause
         {
             get { return this.pause; }
-            set { this.SetOption(ref this.pause, value); }
+            set { this.SetOption(ref this.pause, value, "Pause"); }
         }
 
-        private void SetOption(ref bool option, bool value)
+        public CommandBase Step { get; private set; }
+
+        private void SetOption(ref bool option, bool value, string name)
         {
             if (option == value)
             {
@@ -115,11 +122,13 @@ namespace SQLiteLogViewer.ViewModels
 
             option = value;
             this.SendOptions();
+
+            this.NotifyPropertyChanged(name);
         }
 
         private void SendOptions()
         {
-            this.client.SendOptions(this.collectPlan, this.collectResults, false);
+            this.client.SendOptions(this.CollectPlan, this.CollectResults, this.Pause);
         }
 
         public IConductor Conductor { get; set; }

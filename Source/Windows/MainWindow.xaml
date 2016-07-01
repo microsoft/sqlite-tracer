@@ -32,6 +32,21 @@
                         CommandParameter="{Binding SelectedEntry}"
                         Content="Replay"
                         Margin="0,0,3,0" Padding="5,2"/>
+                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="0,0,3,0"/>
+
+                <ToggleButton IsChecked="{Binding Pause}" Margin="0,0,3,0" Padding="5,2">
+                    <ToggleButton.Style>
+                        <Style TargetType="{x:Type ToggleButton}">
+                            <Setter Property="Content" Value="Pause"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter Property="Content" Value="Continue"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ToggleButton.Style>
+                </ToggleButton>
+                <Button Command="{Binding Step}" IsEnabled="{Binding Pause}" Content="Step" Margin="0,0,3,0" Padding="5,2"/>
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" Grid.Column="2">
@@ -52,6 +67,7 @@
 
             <DataGrid.Columns>
                 <DataGridTextColumn Header="ID" Binding="{Binding ID}"/>
+                <DataGridTextColumn Header="Connection" Binding="{Binding Database}"/>
                 <DataGridTextColumn Header="Database" Binding="{Binding Filename}"/>
                 <DataGridTextColumn Header="Start (ms)" Binding="{Binding Start, StringFormat=fff}"/>
                 <DataGridTextColumn Header="End (ms)" Binding="{Binding End, StringFormat=fff}"/>
