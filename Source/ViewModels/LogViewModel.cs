@@ -17,7 +17,7 @@ namespace SQLiteLogViewer.ViewModels
     using System.Windows;
     using Toolkit;
 
-    public class LogViewModel : ObservableObject
+    public class LogViewModel : ObservableObject, IDisposable
     {
         private EventAggregator events;
         private readonly DebugClient client;
@@ -32,14 +32,11 @@ namespace SQLiteLogViewer.ViewModels
         private Dictionary<int, EntryViewModel> pendingEntries = new Dictionary<int, EntryViewModel>();
 
         private Dictionary<int, string> connections = new Dictionary<int, string>();
-        private DelegateCommand query;
-        private DelegateCommand replay;
 
         private ConnectionViewModel selectedConnection;
         private HashSet<string> databases = new HashSet<string>();
-        private DelegateCommand exec;
 
-        public LogViewModel(EventAggregator events, int port)
+        public LogViewModel(EventAggregator events, DebugClient client)
         {
             if (events == null)
             {
@@ -53,9 +50,9 @@ namespace SQLiteLogViewer.ViewModels
                 this.client.SendStep();
             });
 
-            this.query = new DelegateCommand(() => this.Conductor.OpenQueryWindow());
+            this.Query = new DelegateCommand(() => this.Conductor.OpenQueryWindow());
 
-            this.replay = new DelegateCommand(
+            this.Replay = new DelegateCommand(
                 () =>
                 {
                     var entry = this.SelectedEntry;
@@ -67,7 +64,7 @@ namespace SQLiteLogViewer.ViewModels
                     return !this.Pause && entry != null && entry.Type == EntryType.Query;
                 });
 
-            this.exec = new DelegateCommand(
+            this.Exec = new DelegateCommand(
                 () =>
                 {
                     var connection = this.SelectedConnection;
@@ -82,17 +79,29 @@ namespace SQLiteLogViewer.ViewModels
             this.Entries = new ObservableCollection<EntryViewModel>();
             this.log.Entries.CollectionChanged += this.Log_CollectionChanged;
 
-            this.client = new DebugClient(events);
+            this.client = client;
+            events.Subscribe<ConnectEvent>((c) => this.SendOptions(), ThreadAffinity.PublisherThread);
 
             events.Subscribe<OpenMessage>(this.OpenReceived, ThreadAffinity.UIThread);
             events.Subscribe<CloseMessage>(this.CloseReceived, ThreadAffinity.UIThread);
 
-            events.Subscribe<ConnectEvent>((c) => this.SendOptions(), ThreadAffinity.PublisherThread);
             events.Subscribe<LogMessage>(this.LogReceived, ThreadAffinity.UIThread);
             events.Subscribe<TraceMessage>(this.TraceReceived, ThreadAffinity.UIThread);
             events.Subscribe<ProfileMessage>(this.ProfileReceived, ThreadAffinity.UIThread);
+        }
 
-            this.client.Connect("localhost", port);
+        public void Dispose()
+        {
+            this.Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                this.log.Dispose();
+            }
         }
 
         public ObservableCollection<EntryViewModel> Entries { get; private set; }
@@ -151,15 +160,9 @@ namespace SQLiteLogViewer.ViewModels
 
         public IConductor Conductor { get; set; }
 
-        public CommandBase Query
-        {
-            get { return this.query; }
-        }
+        public CommandBase Query { get; private set; }
 
-        public CommandBase Replay
-        {
-            get { return this.replay; }
-        }
+        public CommandBase Replay { get; private set; }
 
         public IEnumerable<ConnectionViewModel> Connections
         {
@@ -196,10 +199,7 @@ namespace SQLiteLogViewer.ViewModels
 
         public string QueryText { get; set; }
 
-        public CommandBase Exec
-        {
-            get { return this.exec; }
-        }
+        public CommandBase Exec { get; private set; }
 
         private void Log_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
@@ -212,22 +212,8 @@ namespace SQLiteLogViewer.ViewModels
 
                     break;
 
-                case NotifyCollectionChangedAction.Move:
-                    this.Entries.Move(e.OldStartingIndex, e.NewStartingIndex);
-                    break;
-
-                case NotifyCollectionChangedAction.Remove:
-                    this.Entries.RemoveAt(e.OldStartingIndex);
-                    break;
-
-                case NotifyCollectionChangedAction.Replace:
-                    this.Entries[e.OldStartingIndex] = new EntryViewModel(e.NewItems.Cast<Entry>().Single());
-                    break;
-
-                case NotifyCollectionChangedAction.Reset:
-                    this.Entries = new ObservableCollection<EntryViewModel>(
-                        e.NewItems.Cast<Entry>().Select(model => new EntryViewModel(model)));
-                    break;
+                default:
+                    throw new InvalidOperationException("Log can only be appended to.");
             }
         }
 

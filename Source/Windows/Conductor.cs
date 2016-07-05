@@ -18,10 +18,9 @@ namespace SQLiteLogViewer
         {
             if (this.queryWindow == null)
             {
-                this.queryWindow = new QueryWindow()
-                {
-                    DataContext = Application.Current.MainWindow.DataContext,
-                };
+                var mainViewModel = Application.Current.MainWindow.DataContext as MainViewModel;
+                this.queryWindow = new QueryWindow { DataContext = mainViewModel.LogViewModel };
+
                 this.queryWindow.Closed += (sender, e) => this.queryWindow = null;
                 this.queryWindow.Show();
             }

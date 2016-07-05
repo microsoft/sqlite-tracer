@@ -6,8 +6,11 @@
 
 namespace SQLiteLogViewer.Models
 {
+    using SQLiteDebugger;
     using System;
     using System.Data;
+    using System.Globalization;
+    using System.Linq;
 
     public class Entry
     {

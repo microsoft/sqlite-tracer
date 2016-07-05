@@ -8,7 +8,7 @@
 
     internal delegate int SQLiteEntryPoint(IntPtr db, ref string errMsg, IntPtr api);
 
-	internal delegate int SQLiteExec(IntPtr data, int columns, string[] names, string[] values);
+    internal delegate int SQLiteExec(IntPtr data, int columns, string[] names, string[] values);
 
     internal delegate void SQLiteClose(IntPtr data, IntPtr db);
 
@@ -67,6 +67,16 @@
 
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int sqlite3_finalize(IntPtr stmt);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int sqlite3_reset(IntPtr stmt);
+
+        [SuppressMessage("Microsoft.Globalization", "CA2101:SpecifyMarshalingForPInvokeStringArguments", Justification = "Technically should be UTF-8")]
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int sqlite3_bind_text(IntPtr stmt, int index, string text, int length, IntPtr destructor);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int sqlite3_bind_null(IntPtr stmt, int index);
 
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int sqlite3_step(IntPtr stmt);
