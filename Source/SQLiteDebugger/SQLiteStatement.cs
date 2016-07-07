@@ -38,6 +38,15 @@
             }
         }
 
+        public void Bind(int index, int number)
+        {
+            var rc = UnsafeNativeMethods.sqlite3_bind_int(this.stmt, index, number);
+            if (rc != UnsafeNativeMethods.SQLITE_OK)
+            {
+                throw new InvalidOperationException("SQLite could not bind the parameter");
+            }
+        }
+
         public void Bind(int index, string text)
         {
             if (text == null)
@@ -62,11 +71,27 @@
             }
         }
 
-        public void Step()
+        public int ColumnInt(int index)
+        {
+            return UnsafeNativeMethods.sqlite3_column_int(this.stmt, index);
+        }
+
+        public string ColumnText(int index)
+        {
+            var text = UnsafeNativeMethods.sqlite3_column_text(this.stmt, index);
+            return StatementInterceptor.UTF8ToString(text);
+        }
+
+        public bool Step()
         {
             var rc = UnsafeNativeMethods.sqlite3_step(this.stmt);
-            if (rc != UnsafeNativeMethods.SQLITE_DONE && rc != UnsafeNativeMethods.SQLITE_OK)
+            switch (rc)
             {
+            case UnsafeNativeMethods.SQLITE_ROW:
+                return true;
+            case UnsafeNativeMethods.SQLITE_DONE:
+                return false;
+            default:
                 throw new InvalidOperationException("SQLite could not run the query");
             }
         }

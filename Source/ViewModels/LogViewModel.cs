@@ -56,7 +56,7 @@ namespace SQLiteLogViewer.ViewModels
                 () =>
                 {
                     var entry = this.SelectedEntry;
-                    this.client.SendQuery(entry.Database, entry.Filepath, entry.Text);
+                    this.client.SendQuery(entry.Connection, entry.Filepath, entry.Text);
                 },
                 () =>
                 {
@@ -201,14 +201,27 @@ namespace SQLiteLogViewer.ViewModels
 
         public CommandBase Exec { get; private set; }
 
+        public void SaveToFile(string filename)
+        {
+            this.log.SaveToFile(filename);
+        }
+
+        public void LoadFromFile(string filename)
+        {
+            this.log.LoadFromFile(filename);
+        }
+
         private void Log_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             switch (e.Action)
             {
                 case NotifyCollectionChangedAction.Add:
-                    var entry = new EntryViewModel(e.NewItems.Cast<Entry>().Single());
-                    this.Entries.Insert(e.NewStartingIndex, entry);
-                    this.events.Publish<EntryViewModel>(entry);
+                    foreach (var entry in e.NewItems.Cast<Entry>())
+                    {
+                        var entryViewModel = new EntryViewModel(entry);
+                        this.Entries.Insert(e.NewStartingIndex, entryViewModel);
+                        this.events.Publish<EntryViewModel>(entryViewModel);
+                    }
 
                     break;
 
@@ -248,22 +261,21 @@ namespace SQLiteLogViewer.ViewModels
             var entry = new Entry
             {
                 Type = EntryType.Query,
-                ID = trace.Id,
-                Database = trace.Connection,
-                Filename = this.connections[trace.Connection],
+                Connection = trace.Connection,
+                Database = this.connections[trace.Connection],
                 Start = trace.Time,
                 Text = trace.Query,
                 Plan = trace.Plan
             };
 
             this.log.Entries.Add(entry);
-            this.pendingEntries.Add(entry.ID, this.Entries.Last());
+            this.pendingEntries.Add(trace.Id, this.Entries.Last());
         }
 
         private void ProfileReceived(ProfileMessage profile)
         {
-            EntryViewModel entry = this.pendingEntries[profile.Id];
-            this.pendingEntries.Remove(entry.ID);
+            var entry = this.pendingEntries[profile.Id];
+            this.pendingEntries.Remove(profile.Id);
 
             entry.End = entry.Start + profile.Duration;
             entry.Results = profile.Results != null ? profile.Results.AsDataView() : null;

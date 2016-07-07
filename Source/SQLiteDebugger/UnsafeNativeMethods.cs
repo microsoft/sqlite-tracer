@@ -66,10 +66,16 @@
         internal static extern int sqlite3_prepare_v2(IntPtr db, string sql, int len, out IntPtr stmt, IntPtr tail);
 
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern long sqlite3_last_insert_rowid(IntPtr db);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int sqlite3_finalize(IntPtr stmt);
 
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int sqlite3_reset(IntPtr stmt);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int sqlite3_bind_int(IntPtr stmt, int index, int number);
 
         [SuppressMessage("Microsoft.Globalization", "CA2101:SpecifyMarshalingForPInvokeStringArguments", Justification = "Technically should be UTF-8")]
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
@@ -98,6 +104,16 @@
 
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr sqlite3_sql(IntPtr stmt);
+
+        [SuppressMessage("Microsoft.Globalization", "CA2101:SpecifyMarshalingForPInvokeStringArguments", Justification = "Technically should be UTF-8")]
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr sqlite3_backup_init(IntPtr dest, string destName, IntPtr source, string sourceName);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int sqlite3_backup_step(IntPtr backup, int pages);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int sqlite3_backup_finish(IntPtr backup);
     }
 
     #endregion

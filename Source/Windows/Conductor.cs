@@ -6,6 +6,7 @@
 
 namespace SQLiteLogViewer
 {
+    using Microsoft.Win32;
     using System.Diagnostics.CodeAnalysis;
     using System.Windows;
     using ViewModels;
@@ -28,6 +29,28 @@ namespace SQLiteLogViewer
             {
                 this.queryWindow.Focus();
             }
+        }
+
+        public string OpenSaveFileDialog()
+        {
+            var dialog = new SaveFileDialog();
+            if (dialog.ShowDialog() == true)
+            {
+                return dialog.FileName;
+            }
+
+            return null;
+        }
+
+        public string OpenOpenFileDialog()
+        {
+            var dialog = new OpenFileDialog();
+            if (dialog.ShowDialog() == true)
+            {
+                return dialog.FileName;
+            }
+
+            return null;
         }
     }
 }

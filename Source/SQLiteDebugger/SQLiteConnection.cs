@@ -12,6 +12,11 @@
         [SuppressMessage("Microsoft.Reliability", "CA2006:UseSafeHandleToEncapsulateNativeResources", Justification = "This is SafeHandle-like")]
         private IntPtr connection;
 
+        internal IntPtr Connection
+        {
+            get { return this.connection; }
+        }
+
         public SQLiteConnection(string filename, bool create = false)
         {
             var flags = UnsafeNativeMethods.SQLITE_OPEN_READWRITE;
@@ -65,6 +70,11 @@
                 var error = StatementInterceptor.UTF8ToString(UnsafeNativeMethods.sqlite3_errmsg(this.connection));
                 throw new ArgumentException(error, sql);
             }
+        }
+
+        public long LastInsertId()
+        {
+            return UnsafeNativeMethods.sqlite3_last_insert_rowid(this.connection);
         }
     }
 }

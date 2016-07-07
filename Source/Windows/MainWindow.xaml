@@ -82,8 +82,7 @@
             </DataGrid.CellStyle>
 
             <DataGrid.Columns>
-                <DataGridTextColumn Header="ID" Binding="{Binding ID}"/>
-                <DataGridTextColumn Header="Connection" Binding="{Binding Database}"/>
+                <DataGridTextColumn Header="Connection" Binding="{Binding Connection}"/>
                 <DataGridTextColumn Header="Database" Binding="{Binding Filename}"/>
                 <DataGridTextColumn Header="Start (ms)" Binding="{Binding Start, StringFormat=fff}"/>
                 <DataGridTextColumn Header="End (ms)" Binding="{Binding End, StringFormat=fff}"/>
