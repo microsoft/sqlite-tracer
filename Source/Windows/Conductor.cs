@@ -52,5 +52,27 @@ namespace SQLiteLogViewer
 
             return null;
         }
+
+        [SuppressMessage("Microsoft.Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "Quit confirmation")]
+        public bool? ConfirmSave()
+        {
+            var result = MessageBox.Show(
+                "You have unsaved changes. Do you want to save them?",
+                "SQLite Log Viewer",
+                MessageBoxButton.YesNoCancel,
+                MessageBoxImage.Warning);
+
+            switch (result)
+            {
+            case MessageBoxResult.Yes:
+                return true;
+            case MessageBoxResult.No:
+                return false;
+
+            case MessageBoxResult.Cancel:
+            default:
+                return null;
+            }
+        }
     }
 }

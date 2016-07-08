@@ -201,14 +201,18 @@ namespace SQLiteLogViewer.ViewModels
 
         public CommandBase Exec { get; private set; }
 
+        public bool IsDirty { get; set; }
+
         public void SaveToFile(string filename)
         {
             this.log.SaveToFile(filename);
+            this.IsDirty = false;
         }
 
         public void LoadFromFile(string filename)
         {
             this.log.LoadFromFile(filename);
+            this.IsDirty = false;
         }
 
         private void Log_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -223,6 +227,7 @@ namespace SQLiteLogViewer.ViewModels
                         this.events.Publish<EntryViewModel>(entryViewModel);
                     }
 
+                    this.IsDirty = true;
                     break;
 
                 default:

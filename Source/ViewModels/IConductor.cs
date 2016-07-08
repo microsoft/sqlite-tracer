@@ -7,5 +7,7 @@
         string OpenSaveFileDialog();
 
         string OpenOpenFileDialog();
+
+        bool? ConfirmSave();
     }
 }

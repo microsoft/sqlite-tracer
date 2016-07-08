@@ -30,6 +30,8 @@
 
             this.DataContext = mainViewModel;
             this.client.Connect("localhost", this.app.Port);
+
+            this.Closing += (sender, e) => e.Cancel = !mainViewModel.Cleanup();
         }
 
         private void EntryAdded(EntryViewModel entry)

@@ -16,6 +16,19 @@
         {
             this.New = new DelegateCommand(() =>
             {
+                if (this.LogViewModel.IsDirty)
+                {
+                    var confirmation = this.Conductor.ConfirmSave();
+                    if (confirmation == null)
+                    {
+                        return;
+                    }
+                    else if (confirmation == true)
+                    {
+                        this.Save.Execute(null);
+                    }
+                }
+
                 this.logPath = null;
                 this.LogViewModel.Dispose();
                 this.LogViewModel = new LogViewModel(events, client) { Conductor = this.Conductor };
@@ -23,6 +36,19 @@
 
             this.Open = new DelegateCommand(() =>
             {
+                if (this.LogViewModel.IsDirty)
+                {
+                    var confirmation = this.Conductor.ConfirmSave();
+                    if (confirmation == null)
+                    {
+                        return;
+                    }
+                    else if (confirmation == true)
+                    {
+                        this.Save.Execute(null);
+                    }
+                }
+
                 var path = this.Conductor.OpenOpenFileDialog();
                 if (path == null)
                 {
@@ -88,5 +114,24 @@
         public CommandBase Open { get; private set; }
 
         public CommandBase Save { get; private set; }
+
+        public bool Cleanup()
+        {
+            if (this.LogViewModel.IsDirty)
+            {
+                var confirmation = this.Conductor.ConfirmSave();
+                if (confirmation == null)
+                {
+                    return false;
+                }
+                else if (confirmation == true)
+                {
+                    this.Save.Execute(null);
+                    return !this.LogViewModel.IsDirty;
+                }
+            }
+
+            return true;
+        }
     }
 }
