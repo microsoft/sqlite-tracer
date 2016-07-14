@@ -4,7 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-namespace SQLiteLogViewer
+namespace Toolkit
 {
     using System;
     using System.Windows.Input;

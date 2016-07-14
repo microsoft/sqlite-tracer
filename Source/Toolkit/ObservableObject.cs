@@ -4,7 +4,7 @@
 // </copyright>
 // -----------------------------------------------------------------------
 
-namespace SQLiteLogViewer.ViewModels
+namespace Toolkit
 {
     using System.ComponentModel;
 

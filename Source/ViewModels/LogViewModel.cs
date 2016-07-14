@@ -15,13 +15,12 @@ namespace SQLiteLogViewer.ViewModels
     using System.Data;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
-    using System.Net.Sockets;
-    using System.Threading.Tasks;
     using System.Windows;
-    using System.Windows.Input;
+    using Toolkit;
 
     public class LogViewModel : ObservableObject
     {
+        private EventAggregator events;
         private readonly DebugClient client;
 
         private readonly Log log = new Log();
@@ -33,23 +32,26 @@ namespace SQLiteLogViewer.ViewModels
         private EntryViewModel selectedEntry;
         private Dictionary<int, EntryViewModel> pendingEntries = new Dictionary<int, EntryViewModel>();
 
-        public LogViewModel(int port)
+        public LogViewModel(EventAggregator events, int port)
         {
-            if (port < 0)
+            if (events == null)
             {
-                throw new ArgumentOutOfRangeException("port");
+                throw new ArgumentNullException("events");
             }
+
+            this.events = events;
 
             this.Entries = new ObservableCollection<EntryViewModel>();
             this.log.Entries.CollectionChanged += this.Log_CollectionChanged;
 
-            this.client = new DebugClient();
-            this.client.Connected += (sender, e) => this.SendOptions();
-            this.client.Connect("localhost", port);
+            this.client = new DebugClient(events);
 
-            this.client.LogReceived += this.Client_LogReceived;
-            this.client.TraceReceived += this.Client_TraceReceived;
-            this.client.ProfileReceived += this.Client_ProfileReceived;
+            events.Subscribe<ConnectEvent>((c) => this.SendOptions(), ThreadAffinity.PublisherThread);
+            events.Subscribe<LogMessage>(this.LogReceived, ThreadAffinity.UIThread);
+            events.Subscribe<TraceMessage>(this.TraceReceived, ThreadAffinity.UIThread);
+            events.Subscribe<ProfileMessage>(this.ProfileReceived, ThreadAffinity.UIThread);
+
+            this.client.Connect("localhost", port);
         }
 
         public ObservableCollection<EntryViewModel> Entries { get; private set; }
@@ -67,8 +69,6 @@ namespace SQLiteLogViewer.ViewModels
                 this.NotifyPropertyChanged("SelectedEntry");
             }
         }
-
-        public event EventHandler<EntryAddedEventArgs> EntryAdded;
 
         public bool CollectPlan
         {
@@ -111,11 +111,7 @@ namespace SQLiteLogViewer.ViewModels
                 case NotifyCollectionChangedAction.Add:
                     var entry = new EntryViewModel(e.NewItems.Cast<Entry>().Single());
                     this.Entries.Insert(e.NewStartingIndex, entry);
-                    var handler = this.EntryAdded;
-                    if (handler != null)
-                    {
-                        handler(this, new EntryAddedEventArgs { Entry = entry });
-                    }
+                    this.events.Publish<EntryViewModel>(entry);
 
                     break;
 
@@ -138,9 +134,8 @@ namespace SQLiteLogViewer.ViewModels
             }
         }
 
-        private void Client_LogReceived(object sender, LogEventArgs e)
+        private void LogReceived(LogMessage message)
         {
-            var message = e.Message;
             var entry = new Entry
             {
                 Start = message.Time,
@@ -148,38 +143,24 @@ namespace SQLiteLogViewer.ViewModels
                 Text = message.Message
             };
 
-            Application.Current.Dispatcher.Invoke(() => { this.log.Entries.Add(entry); });
+            this.log.Entries.Add(entry);
         }
 
-        private void Client_TraceReceived(object sender, TraceEventArgs e)
+        private void TraceReceived(TraceMessage trace)
         {
-            var trace = e.Message;
             var entry = new Entry { ID = trace.Id, Start = trace.Time, Text = trace.Query, Plan = trace.Plan };
 
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                this.log.Entries.Add(entry);
-                this.pendingEntries.Add(entry.ID, this.Entries.Last());
-            });
+            this.log.Entries.Add(entry);
+            this.pendingEntries.Add(entry.ID, this.Entries.Last());
         }
 
-        private void Client_ProfileReceived(object sender, ProfileEventArgs e)
+        private void ProfileReceived(ProfileMessage profile)
         {
-            var profile = e.Message;
             EntryViewModel entry = this.pendingEntries[profile.Id];
             this.pendingEntries.Remove(entry.ID);
 
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                entry.End = entry.Start + profile.Duration;
-                entry.Results = profile.Results != null ? profile.Results.AsDataView() : null;
-            });
+            entry.End = entry.Start + profile.Duration;
+            entry.Results = profile.Results != null ? profile.Results.AsDataView() : null;
         }
-    }
-
-    [SuppressMessage("Microsoft.StyleCop.CSharp.MaintainabilityRules", "SA1402:FileMayOnlyContainASingleClass", Justification = "EventArgs")]
-    public class EntryAddedEventArgs : EventArgs
-    {
-        public EntryViewModel Entry { get; set; }
     }
 }

@@ -9,6 +9,7 @@ namespace SQLiteLogViewer.ViewModels
     using Models;
     using System;
     using System.Data;
+    using Toolkit;
 
     public class EntryViewModel : ObservableObject
     {

@@ -1,21 +1,25 @@
 ﻿namespace SQLiteDebugger
 {
+    using Toolkit;
     using Newtonsoft.Json;
     using Newtonsoft.Json.Linq;
     using System;
-    using System.Collections.Generic;
-    using System.Diagnostics.CodeAnalysis;
     using System.IO;
-    using System.Linq;
     using System.Net.Sockets;
     using System.Text;
-    using System.Threading;
     using System.Threading.Tasks;
 
     public class DebugClient
     {
+        private EventAggregator events;
+
         private BinaryWriter clientWriter;
         private Task connectTask;
+
+        public DebugClient(EventAggregator events)
+        {
+            this.events = events;
+        }
 
         public void Connect(string address, int port)
         {
@@ -32,19 +36,13 @@
             this.connectTask = this.ConnectToServer(address, port);
         }
 
-        public event EventHandler<EventArgs> Connected;
-
-        public event EventHandler<LogEventArgs> LogReceived;
-
-        public event EventHandler<TraceEventArgs> TraceReceived;
-
-        public event EventHandler<ProfileEventArgs> ProfileReceived;
-
         public void SendOptions(bool plan, bool results, bool pause)
         {
             var data = new OptionsMessage
             {
-                Plan = plan, Results = results, Pause = pause
+                Plan = plan,
+                Results = results,
+                Pause = pause
             };
 
             var json = JsonConvert.SerializeObject(data);
@@ -88,11 +86,7 @@
                         await client.ConnectAsync(address, port);
                         this.clientWriter = new BinaryWriter(client.GetStream());
 
-                        var handler = this.Connected;
-                        if (handler != null)
-                        {
-                            handler(this, EventArgs.Empty);
-                        }
+                        this.events.Publish<ConnectEvent>(new ConnectEvent());
 
                         await Task.Run(() => this.ReceiveMessages(client));
                     }
@@ -130,71 +124,26 @@
                     {
                         case LogMessage.Type:
                             var logMessage = serializer.Deserialize<LogMessage>(jsonReader);
-                            this.OnLogReceived(logMessage);
+                            this.events.Publish<LogMessage>(logMessage);
                             break;
 
                         case TraceMessage.Type:
                             var traceMessage = serializer.Deserialize<TraceMessage>(jsonReader);
-                            this.OnTraceReceived(traceMessage);
+                            this.events.Publish<TraceMessage>(traceMessage);
                             break;
 
                         case ProfileMessage.Type:
                             var profileMessage = serializer.Deserialize<ProfileMessage>(jsonReader);
-                            this.OnProfileReceived(profileMessage);
+                            this.events.Publish<ProfileMessage>(profileMessage);
                             break;
 
                         default:
                             var errorMessage = new LogMessage { Message = message.ToString() };
-                            this.OnLogReceived(errorMessage);
+                            this.events.Publish<LogMessage>(errorMessage);
                             break;
                     }
                 }
             }
         }
-
-        private void OnLogReceived(LogMessage message)
-        {
-            var handler = this.LogReceived;
-            if (handler != null)
-            {
-                handler(this, new LogEventArgs { Message = message });
-            }
-        }
-
-        private void OnTraceReceived(TraceMessage message)
-        {
-            var handler = this.TraceReceived;
-            if (handler != null)
-            {
-                handler(this, new TraceEventArgs { Message = message });
-            }
-        }
-
-        private void OnProfileReceived(ProfileMessage message)
-        {
-            var handler = this.ProfileReceived;
-            if (handler != null)
-            {
-                handler(this, new ProfileEventArgs { Message = message });
-            }
-        }
-    }
-
-    [SuppressMessage("Microsoft.StyleCop.CSharp.MaintainabilityRules", "SA1402:FileMayOnlyContainASingleClass", Justification = "EventArgs")]
-    public class LogEventArgs : EventArgs
-    {
-        public LogMessage Message { get; set; }
-    }
-
-    [SuppressMessage("Microsoft.StyleCop.CSharp.MaintainabilityRules", "SA1402:FileMayOnlyContainASingleClass", Justification = "EventArgs")]
-    public class TraceEventArgs : EventArgs
-    {
-        public TraceMessage Message { get; set; }
-    }
-
-    [SuppressMessage("Microsoft.StyleCop.CSharp.MaintainabilityRules", "SA1402:FileMayOnlyContainASingleClass", Justification = "EventArgs")]
-    public class ProfileEventArgs : EventArgs
-    {
-        public ProfileMessage Message { get; set; }
     }
 }

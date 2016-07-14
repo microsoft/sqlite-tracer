@@ -3,17 +3,19 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLiteDebugger", "SQLiteDebugger\SQLiteDebugger.csproj", "{756C15D9-F08D-4BDF-A24E-7923C20730CC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLiteDebugger", "Source\SQLiteDebugger\SQLiteDebugger.csproj", "{756C15D9-F08D-4BDF-A24E-7923C20730CC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLiteLogViewer", "SQLiteLogViewer.csproj", "{E46B981A-1FAA-497B-878C-2A5E9F1C56A1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SQLiteLogViewer", "Source\Windows\SQLiteLogViewer.csproj", "{E46B981A-1FAA-497B-878C-2A5E9F1C56A1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Models", "Models\Models.csproj", "{E9B05E2D-3775-4DFE-A149-4EBA92290623}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Models", "Source\Models\Models.csproj", "{E9B05E2D-3775-4DFE-A149-4EBA92290623}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ViewModels", "ViewModels\ViewModels.csproj", "{8E302C60-9E79-4CA6-86A4-76ED5A48B1DD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ViewModels", "Source\ViewModels\ViewModels.csproj", "{8E302C60-9E79-4CA6-86A4-76ED5A48B1DD}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "LogViewer", "LogViewer", "{B39E1675-4C89-4AB0-A781-74B43D1D03A9}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Debugger", "Debugger", "{47D1DA0E-B407-4066-BFF3-BE6834641318}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Toolkit", "Source\Toolkit\Toolkit.csproj", "{9FBC79A6-CA1A-4B58-BDE8-088E5429DB0B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -37,6 +39,10 @@ Global
 		{8E302C60-9E79-4CA6-86A4-76ED5A48B1DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8E302C60-9E79-4CA6-86A4-76ED5A48B1DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8E302C60-9E79-4CA6-86A4-76ED5A48B1DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9FBC79A6-CA1A-4B58-BDE8-088E5429DB0B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9FBC79A6-CA1A-4B58-BDE8-088E5429DB0B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9FBC79A6-CA1A-4B58-BDE8-088E5429DB0B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9FBC79A6-CA1A-4B58-BDE8-088E5429DB0B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -45,5 +51,6 @@ Global
 		{756C15D9-F08D-4BDF-A24E-7923C20730CC} = {47D1DA0E-B407-4066-BFF3-BE6834641318}
 		{E9B05E2D-3775-4DFE-A149-4EBA92290623} = {B39E1675-4C89-4AB0-A781-74B43D1D03A9}
 		{8E302C60-9E79-4CA6-86A4-76ED5A48B1DD} = {B39E1675-4C89-4AB0-A781-74B43D1D03A9}
+		{9FBC79A6-CA1A-4B58-BDE8-088E5429DB0B} = {B39E1675-4C89-4AB0-A781-74B43D1D03A9}
 	EndGlobalSection
 EndGlobal
