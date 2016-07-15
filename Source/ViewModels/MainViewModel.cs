@@ -55,10 +55,9 @@
                     return;
                 }
 
-                this.New.Execute(null);
-
                 this.logPath = path;
-                this.LogViewModel.LoadFromFile(this.logPath);
+                this.LogViewModel.Dispose();
+                this.LogViewModel = new LogViewModel(events, client, this.logPath) { Conductor = this.Conductor };
             });
 
             this.Save = new DelegateCommand(() =>

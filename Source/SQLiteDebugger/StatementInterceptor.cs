@@ -208,7 +208,7 @@
             if (this.CollectPlan)
             {
                 var lines = ExplainQueryPlan(stmt).Select(qpr => new string('\t', qpr.Order) + qpr.Detail);
-                plan = string.Join("\n", lines);
+                plan = string.Join(Environment.NewLine, lines);
             }
 
             int db = 0;
