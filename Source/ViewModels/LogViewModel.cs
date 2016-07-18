@@ -33,7 +33,7 @@ namespace SQLiteLogViewer.ViewModels
 
         private Dictionary<int, string> connections = new Dictionary<int, string>();
         private DelegateCommand query;
-        private ReplayCommand replay;
+        private DelegateCommand replay;
 
         private ConnectionViewModel selectedConnection;
         private HashSet<string> databases = new HashSet<string>();
@@ -54,12 +54,30 @@ namespace SQLiteLogViewer.ViewModels
             });
 
             this.query = new DelegateCommand(() => this.Conductor.OpenQueryWindow());
-            this.replay = new ReplayCommand(this);
-            this.exec = new DelegateCommand(() =>
-            {
-                var connection = this.SelectedConnection;
-                this.client.SendQuery(connection.Id, connection.Filename, this.QueryText);
-            });
+
+            this.replay = new DelegateCommand(
+                () =>
+                {
+                    var entry = this.SelectedEntry;
+                    this.client.SendQuery(entry.Database, entry.Filepath, entry.Text);
+                },
+                () =>
+                {
+                    var entry = this.SelectedEntry;
+                    return !this.Pause && entry != null && entry.Type == EntryType.Query;
+                });
+
+            this.exec = new DelegateCommand(
+                () =>
+                {
+                    var connection = this.SelectedConnection;
+                    this.client.SendQuery(connection.Id, connection.Filename, this.QueryText);
+                },
+                () =>
+                {
+                    var connection = this.SelectedConnection;
+                    return !this.Pause && connection != null;
+                });
 
             this.Entries = new ObservableCollection<EntryViewModel>();
             this.log.Entries.CollectionChanged += this.Log_CollectionChanged;
@@ -141,43 +159,6 @@ namespace SQLiteLogViewer.ViewModels
         public CommandBase Replay
         {
             get { return this.replay; }
-        }
-
-        private class ReplayCommand : CommandBase
-        {
-            private LogViewModel owner;
-
-            public ReplayCommand(LogViewModel owner)
-            {
-                this.owner = owner;
-            }
-
-            public override bool CanExecute(object parameter)
-            {
-                var entry = parameter as EntryViewModel;
-                if (entry == null)
-                {
-                    return false;
-                }
-
-                if (entry.Type != EntryType.Query)
-                {
-                    return false;
-                }
-
-                return true;
-            }
-
-            public override void Execute(object parameter)
-            {
-                if (!this.CanExecute(parameter))
-                {
-                    throw new ArgumentException("Selected item is not a query", "parameter");
-                }
-
-                var entry = parameter as EntryViewModel;
-                this.owner.client.SendQuery(entry.Database, entry.Filepath, entry.Text);
-            }
         }
 
         public IEnumerable<ConnectionViewModel> Connections

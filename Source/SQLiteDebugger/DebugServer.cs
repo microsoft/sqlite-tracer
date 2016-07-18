@@ -6,9 +6,7 @@ namespace SQLiteDebugger
     using System.Collections.Generic;
     using System.Data;
     using System.Diagnostics.CodeAnalysis;
-    using System.Globalization;
     using System.IO;
-    using System.Linq;
     using System.Net;
     using System.Net.Sockets;
     using System.Text;
@@ -74,6 +72,7 @@ namespace SQLiteDebugger
             }
         }
 
+        [SuppressMessage("Microsoft.Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "Debug text")]
         private void ReceiveMessages(TcpClient client)
         {
             var serializer = new JsonSerializer();
@@ -105,6 +104,12 @@ namespace SQLiteDebugger
                             break;
 
                         case QueryMessage.Type:
+                            if (this.interceptor.Pause)
+                            {
+                                this.SendLog("[Error] Cannot run queries while paused.");
+                                break;
+                            }
+
                             var query = serializer.Deserialize<QueryMessage>(jsonReader);
                             this.interceptor.Exec(query.Connection, query.Filename, query.Query);
                             break;

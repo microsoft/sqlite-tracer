@@ -29,7 +29,6 @@
                         Content="Query"
                         Margin="0,0,3,0" Padding="5,2"/>
                 <Button Command="{Binding Replay}"
-                        CommandParameter="{Binding SelectedEntry}"
                         Content="Replay"
                         Margin="0,0,3,0" Padding="5,2"/>
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="0,0,3,0"/>
