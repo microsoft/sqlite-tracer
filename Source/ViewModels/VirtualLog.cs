@@ -4,6 +4,7 @@
     using System;
     using System.Collections;
     using System.Collections.Generic;
+    using System.Collections.ObjectModel;
     using System.Collections.Specialized;
     using Toolkit;
 
@@ -21,6 +22,8 @@
         private const int PageSize = 128;
         private const int PageCount = 4;
 
+        private int count = -1;
+
         private bool disposed = false;
         private Log log;
         private Dictionary<int, LinkedListNode<Page>> pages = new Dictionary<int, LinkedListNode<Page>>();
@@ -35,6 +38,8 @@
 
             this.log = log;
             events.Subscribe<Entry>(this.EntryAdded, ThreadAffinity.PublisherThread);
+
+            this.Filters = new ObservableCollection<FilterViewModel>();
         }
 
         public event NotifyCollectionChangedEventHandler CollectionChanged;
@@ -168,8 +173,6 @@
             }
         }
 
-        private int count = -1;
-
         public int Count
         {
             get
@@ -229,5 +232,7 @@
                 handler(this, args);
             }
         }
+
+        public ObservableCollection<FilterViewModel> Filters { get; private set; }
     }
 }

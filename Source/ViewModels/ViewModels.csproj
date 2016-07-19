@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="ConnectionViewModel.cs" />
     <Compile Include="EntryViewModel.cs" />
+    <Compile Include="FilterViewModel.cs" />
     <Compile Include="IConductor.cs" />
     <Compile Include="LogViewModel.cs" />
     <Compile Include="MainViewModel.cs" />

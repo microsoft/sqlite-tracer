@@ -33,9 +33,10 @@ namespace SQLiteLogViewer.ViewModels
         private EntryViewModel selectedEntry;
         private Dictionary<int, EntryViewModel> pendingEntries = new Dictionary<int, EntryViewModel>();
 
-        private Dictionary<int, string> connections = new Dictionary<int, string>();
+        private FilterViewModel selectedFilter;
 
         private ConnectionViewModel selectedConnection;
+        private Dictionary<int, string> connections = new Dictionary<int, string>();
         private HashSet<string> databases = new HashSet<string>();
 
         public LogViewModel(EventAggregator events, DebugClient client, string filename = null)
@@ -90,6 +91,17 @@ namespace SQLiteLogViewer.ViewModels
             this.Entries = new VirtualLog(events, this.log);
             this.Entries.CollectionChanged += this.Entries_CollectionChanged;
 
+            this.NewFilter = new DelegateCommand(() =>
+            {
+                var filter = new FilterViewModel { Parent = this };
+                this.Filters.Add(filter);
+                this.SelectedFilter = filter;
+
+                this.Conductor.OpenFilterWindow();
+            });
+            this.EditFilter = new DelegateCommand(() => this.Conductor.OpenFilterWindow());
+            this.DeleteFilter = new DelegateCommand(() => this.Filters.Remove(this.SelectedFilter));
+
             this.client = client;
             events.Subscribe<ConnectEvent>(this.ConnectionOpened, ThreadAffinity.PublisherThread);
 
@@ -123,17 +135,26 @@ namespace SQLiteLogViewer.ViewModels
 
         public EntryViewModel SelectedEntry
         {
-            get
-            {
-                return this.selectedEntry;
-            }
-
-            set
-            {
-                this.selectedEntry = value;
-                this.NotifyPropertyChanged("SelectedEntry");
-            }
+            get { return this.selectedEntry; }
+            set { this.SetField(ref this.selectedEntry, value); }
         }
+
+        public ObservableCollection<FilterViewModel> Filters
+        {
+            get { return this.Entries.Filters; }
+        }
+
+        public FilterViewModel SelectedFilter
+        {
+            get { return this.selectedFilter; }
+            set { this.SetField(ref this.selectedFilter, value); }
+        }
+
+        public CommandBase NewFilter { get; private set; }
+
+        public CommandBase EditFilter { get; private set; }
+
+        public CommandBase DeleteFilter { get; private set; }
 
         public bool CollectPlan
         {

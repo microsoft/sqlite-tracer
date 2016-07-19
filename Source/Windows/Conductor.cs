@@ -14,6 +14,7 @@ namespace SQLiteLogViewer
     public class Conductor : IConductor
     {
         private QueryWindow queryWindow;
+        private FilterWindow filterWindow;
 
         public void OpenQueryWindow()
         {
@@ -28,6 +29,22 @@ namespace SQLiteLogViewer
             else
             {
                 this.queryWindow.Focus();
+            }
+        }
+
+        public void OpenFilterWindow()
+        {
+            if (this.filterWindow == null)
+            {
+                var mainViewModel = Application.Current.MainWindow.DataContext as MainViewModel;
+                this.filterWindow = new FilterWindow { DataContext = mainViewModel.LogViewModel };
+
+                this.filterWindow.Closed += (sender, e) => this.filterWindow = null;
+                this.filterWindow.Show();
+            }
+            else
+            {
+                this.filterWindow.Focus();
             }
         }
 
