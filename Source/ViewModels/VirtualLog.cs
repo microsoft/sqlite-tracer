@@ -6,6 +6,7 @@
     using System.Collections.Generic;
     using System.Collections.ObjectModel;
     using System.Collections.Specialized;
+    using System.Linq;
     using Toolkit;
 
     using Page = System.Tuple<int, EntryViewModel[]>;
@@ -40,6 +41,7 @@
             events.Subscribe<Entry>(this.EntryAdded, ThreadAffinity.PublisherThread);
 
             this.Filters = new ObservableCollection<FilterViewModel>();
+            this.Filters.CollectionChanged += Filters_CollectionChanged;
         }
 
         public event NotifyCollectionChangedEventHandler CollectionChanged;
@@ -149,9 +151,13 @@
                         this.pages.Remove(evicted.Value.Item1);
                     }
 
+                    var filters = new HashSet<Filter>(this.Filters
+                        .Where((filter) => filter.Enabled)
+                        .Select((filter) => filter.Filter));
+
                     var newPage = new EntryViewModel[PageSize];
                     var i = 0;
-                    foreach (var entry in this.log.GetEntries(pageIndex * PageSize, PageSize))
+                    foreach (var entry in this.log.GetEntries(pageIndex * PageSize, PageSize, filters))
                     {
                         newPage[i++] = new EntryViewModel(entry);
                     }
@@ -179,7 +185,11 @@
             {
                 if (this.count == -1)
                 {
-                    this.count = this.log.Count;
+                    var filters = new HashSet<Filter>(this.Filters
+                        .Where((filter) => filter.Enabled)
+                        .Select((filter) => filter.Filter));
+
+                    this.count = this.log.CountFilter(filters);
                 }
 
                 return this.count;
@@ -214,6 +224,12 @@
 
             this.Count += 1;
 
+            if (this.Filters.Any((filter) => filter.Enabled))
+            {
+                this.ResetCache();
+                return;
+            }
+
             var index = entry.Id - 1;
 
             var entryViewModel = this[index];
@@ -234,5 +250,40 @@
         }
 
         public ObservableCollection<FilterViewModel> Filters { get; private set; }
+
+        private void ResetCache()
+        {
+            this.count = -1;
+            this.pages.Clear();
+            this.lru.Clear();
+
+            var handler = this.CollectionChanged;
+            if (handler != null)
+            {
+                var args = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset);
+                handler(this, args);
+            }
+        }
+
+        private void Filters_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.Action == NotifyCollectionChangedAction.Add)
+            {
+                foreach (var filter in e.NewItems.Cast<FilterViewModel>())
+                {
+                    filter.PropertyChanged += this.Filter_PropertyChanged;
+                }
+            }
+
+            this.ResetCache();
+        }
+
+        private void Filter_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == "Enabled" || (sender as FilterViewModel).Enabled)
+            {
+                this.ResetCache();
+            }
+        }
     }
 }

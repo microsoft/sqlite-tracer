@@ -259,6 +259,9 @@ namespace SQLiteLogViewer.ViewModels
 
                     break;
 
+                case NotifyCollectionChangedAction.Reset:
+                    break;
+
                 default:
                     throw new InvalidOperationException("Log can only be appended to.");
             }
