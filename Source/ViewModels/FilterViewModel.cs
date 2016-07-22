@@ -3,6 +3,7 @@
     using Models;
     using System;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.Runtime.CompilerServices;
     using System.Text;
     using Toolkit;
@@ -19,6 +20,7 @@
             get { return this.filter; }
         }
 
+        // TODO: translation
         private static Dictionary<string, EntryType?> entryTypes = new Dictionary<string, EntryType?>
         {
             { "Any", null },
@@ -55,6 +57,26 @@
                     }
 
                     description.AppendFormat("{0} ", Enum.GetName(typeof(EntryType), this.Type.Value));
+                }
+
+                if (this.After != default(DateTime))
+                {
+                    if (this.InvertAfter)
+                    {
+                        description.Append("not ");
+                    }
+
+                    description.AppendFormat("after {0} ", this.After.ToString("H:m:s.fff", CultureInfo.InvariantCulture));
+                }
+
+                if (this.Before != default(DateTime))
+                {
+                    if (this.InvertBefore)
+                    {
+                        description.Append("not ");
+                    }
+
+                    description.AppendFormat("before {0} ", this.Before.ToString("H:m:s.fff", CultureInfo.InvariantCulture));
                 }
 
                 if (!string.IsNullOrEmpty(this.Database))
@@ -119,6 +141,30 @@
         {
             get { return this.filter.Invert.HasFlag(FilterField.Database); }
             set { this.SetFilterFlag(ref this.filter.Invert, FilterField.Database, value); }
+        }
+
+        public DateTime After
+        {
+            get { return this.filter.After; }
+            set { this.SetFilterField(ref this.filter.After, value); }
+        }
+
+        public bool InvertAfter
+        {
+            get { return this.filter.Invert.HasFlag(FilterField.After); }
+            set { this.SetFilterFlag(ref this.filter.Invert, FilterField.After, value); }
+        }
+
+        public DateTime Before
+        {
+            get { return this.filter.Before; }
+            set { this.SetFilterField(ref this.filter.Before, value); }
+        }
+
+        public bool InvertBefore
+        {
+            get { return this.filter.Invert.HasFlag(FilterField.Before); }
+            set { this.SetFilterFlag(ref this.filter.Invert, FilterField.Before, value); }
         }
 
         public bool? Complete
