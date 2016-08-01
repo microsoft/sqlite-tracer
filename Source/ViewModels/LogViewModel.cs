@@ -23,6 +23,7 @@ namespace SQLiteLogViewer.ViewModels
         private EventAggregator events;
         private readonly DebugClient client;
 
+        private bool disposed = false;
         private readonly Log log;
 
         private bool collectPlan = false;
@@ -90,7 +91,7 @@ namespace SQLiteLogViewer.ViewModels
             this.Entries.CollectionChanged += this.Entries_CollectionChanged;
 
             this.client = client;
-            events.Subscribe<ConnectEvent>((c) => this.SendOptions(), ThreadAffinity.PublisherThread);
+            events.Subscribe<ConnectEvent>(this.ConnectionOpened, ThreadAffinity.PublisherThread);
 
             events.Subscribe<OpenMessage>(this.OpenReceived, ThreadAffinity.UIThread);
             events.Subscribe<CloseMessage>(this.CloseReceived, ThreadAffinity.UIThread);
@@ -110,6 +111,10 @@ namespace SQLiteLogViewer.ViewModels
         {
             if (disposing)
             {
+                // EventAggregator's Publish can sometimes race with our Unsubscribe calls here
+                // thus, event handlers that use unmanaged resources must check this flag
+                this.disposed = true;
+                this.Entries.Dispose();
                 this.log.Dispose();
             }
         }
@@ -238,8 +243,18 @@ namespace SQLiteLogViewer.ViewModels
             }
         }
 
+        private void ConnectionOpened(ConnectEvent c)
+        {
+            this.SendOptions();
+        }
+
         private void LogReceived(LogMessage message)
         {
+            if (this.disposed)
+            {
+                return;
+            }
+
             var entry = new Entry
             {
                 Type = EntryType.Message,
@@ -259,18 +274,33 @@ namespace SQLiteLogViewer.ViewModels
 
         private void CloseReceived(CloseMessage close)
         {
-            this.databases.Add(this.connections[close.Id]);
+            string database = null;
+            this.connections.TryGetValue(close.Id, out database);
+            if (database == null)
+            {
+                return;
+            }
+
+            this.databases.Add(database);
             this.connections.Remove(close.Id);
             this.NotifyPropertyChanged("Connections");
         }
 
         private void TraceReceived(TraceMessage trace)
         {
+            if (this.disposed)
+            {
+                return;
+            }
+
+            string database = string.Empty;
+            this.connections.TryGetValue(trace.Connection, out database);
+
             var entry = new Entry
             {
                 Type = EntryType.Query,
                 Connection = trace.Connection,
-                Database = this.connections[trace.Connection],
+                Database = database,
                 Start = trace.Time,
                 Text = trace.Query,
                 Plan = trace.Plan
@@ -282,7 +312,18 @@ namespace SQLiteLogViewer.ViewModels
 
         private void ProfileReceived(ProfileMessage profile)
         {
-            var entry = this.pendingEntries[profile.Id];
+            if (this.disposed)
+            {
+                return;
+            }
+
+            EntryViewModel entry = null;
+            this.pendingEntries.TryGetValue(profile.Id, out entry);
+            if (entry == null)
+            {
+                return;
+            }
+
             this.pendingEntries.Remove(profile.Id);
 
             entry.End = entry.Start + profile.Duration;

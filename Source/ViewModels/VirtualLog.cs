@@ -16,11 +16,12 @@
     /// 
     /// PageSize and PageCount determine the cache size and can be tuned to control memory usage.
     /// </summary>
-    public class VirtualLog : ObservableObject, IList<EntryViewModel>, INotifyCollectionChanged
+    public class VirtualLog : ObservableObject, IList<EntryViewModel>, INotifyCollectionChanged, IDisposable
     {
         private const int PageSize = 128;
         private const int PageCount = 4;
 
+        private bool disposed = false;
         private Log log;
         private Dictionary<int, LinkedListNode<Page>> pages = new Dictionary<int, LinkedListNode<Page>>();
         private LinkedList<Page> lru = new LinkedList<Page>();
@@ -37,6 +38,22 @@
         }
 
         public event NotifyCollectionChangedEventHandler CollectionChanged;
+
+        public void Dispose()
+        {
+            this.Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                // EventAggregator's Publish can sometimes race with our Unsubscribe calls here
+                // thus, event handlers that use unmanaged resources must check this flag
+                this.disposed = true;
+            }
+        }
 
         public void Add(EntryViewModel entry)
         {
@@ -187,6 +204,11 @@
 
         private void EntryAdded(Entry entry)
         {
+            if (this.disposed)
+            {
+                return;
+            }
+
             this.Count += 1;
 
             var index = entry.Id - 1;
