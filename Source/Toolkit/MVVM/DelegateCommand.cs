@@ -12,16 +12,12 @@ namespace Toolkit
     public class DelegateCommand : CommandBase
     {
         private readonly Action action;
+        private readonly Func<bool> canExecute;
 
-        public DelegateCommand(Action action)
+        public DelegateCommand(Action action, Func<bool> canExecute = null)
         {
             this.action = action;
-        }
-
-        public override event EventHandler CanExecuteChanged
-        {
-            add { }
-            remove { }
+            this.canExecute = canExecute;
         }
 
         public override void Execute(object parameter)
@@ -31,7 +27,7 @@ namespace Toolkit
 
         public override bool CanExecute(object parameter)
         {
-            return true;
+            return this.canExecute == null ? true : this.canExecute();
         }
     }
 }

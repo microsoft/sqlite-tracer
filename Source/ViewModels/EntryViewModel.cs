@@ -15,6 +15,7 @@ namespace SQLiteLogViewer.ViewModels
     public class EntryViewModel : ObservableObject
     {
         private readonly Entry entry;
+        private string preview;
 
         public EntryViewModel(Entry entry)
         {
@@ -86,8 +87,6 @@ namespace SQLiteLogViewer.ViewModels
         {
             get { return this.entry.Text; }
         }
-
-        private string preview;
 
         public string Preview
         {

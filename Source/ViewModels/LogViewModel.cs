@@ -33,7 +33,7 @@ namespace SQLiteLogViewer.ViewModels
 
         private Dictionary<int, string> connections = new Dictionary<int, string>();
         private DelegateCommand query;
-        private ReplayCommand replay;
+        private DelegateCommand replay;
 
         private ConnectionViewModel selectedConnection;
         private HashSet<string> databases = new HashSet<string>();
@@ -48,13 +48,36 @@ namespace SQLiteLogViewer.ViewModels
 
             this.events = events;
 
-            this.query = new DelegateCommand(() => this.Conductor.OpenQueryWindow());
-            this.replay = new ReplayCommand(this);
-            this.exec = new DelegateCommand(() =>
+            this.Step = new DelegateCommand(() =>
             {
-                var connection = this.SelectedConnection;
-                this.client.SendQuery(connection.Id, connection.Filename, this.QueryText);
+                this.client.SendStep();
             });
+
+            this.query = new DelegateCommand(() => this.Conductor.OpenQueryWindow());
+
+            this.replay = new DelegateCommand(
+                () =>
+                {
+                    var entry = this.SelectedEntry;
+                    this.client.SendQuery(entry.Database, entry.Filepath, entry.Text);
+                },
+                () =>
+                {
+                    var entry = this.SelectedEntry;
+                    return !this.Pause && entry != null && entry.Type == EntryType.Query;
+                });
+
+            this.exec = new DelegateCommand(
+                () =>
+                {
+                    var connection = this.SelectedConnection;
+                    this.client.SendQuery(connection.Id, connection.Filename, this.QueryText);
+                },
+                () =>
+                {
+                    var connection = this.SelectedConnection;
+                    return !this.Pause && connection != null;
+                });
 
             this.Entries = new ObservableCollection<EntryViewModel>();
             this.log.Entries.CollectionChanged += this.Log_CollectionChanged;
@@ -91,22 +114,24 @@ namespace SQLiteLogViewer.ViewModels
         public bool CollectPlan
         {
             get { return this.collectPlan; }
-            set { this.SetOption(ref this.collectPlan, value); }
+            set { this.SetOption(ref this.collectPlan, value, "CollectPlan"); }
         }
 
         public bool CollectResults
         {
             get { return this.collectResults; }
-            set { this.SetOption(ref this.collectResults, value); }
+            set { this.SetOption(ref this.collectResults, value, "CollectResults"); }
         }
 
         public bool Pause
         {
             get { return this.pause; }
-            set { this.SetOption(ref this.pause, value); }
+            set { this.SetOption(ref this.pause, value, "Pause"); }
         }
 
-        private void SetOption(ref bool option, bool value)
+        public CommandBase Step { get; private set; }
+
+        private void SetOption(ref bool option, bool value, string name)
         {
             if (option == value)
             {
@@ -115,11 +140,13 @@ namespace SQLiteLogViewer.ViewModels
 
             option = value;
             this.SendOptions();
+
+            this.NotifyPropertyChanged(name);
         }
 
         private void SendOptions()
         {
-            this.client.SendOptions(this.collectPlan, this.collectResults, false);
+            this.client.SendOptions(this.CollectPlan, this.CollectResults, this.Pause);
         }
 
         public IConductor Conductor { get; set; }
@@ -132,43 +159,6 @@ namespace SQLiteLogViewer.ViewModels
         public CommandBase Replay
         {
             get { return this.replay; }
-        }
-
-        private class ReplayCommand : CommandBase
-        {
-            private LogViewModel owner;
-
-            public ReplayCommand(LogViewModel owner)
-            {
-                this.owner = owner;
-            }
-
-            public override bool CanExecute(object parameter)
-            {
-                var entry = parameter as EntryViewModel;
-                if (entry == null)
-                {
-                    return false;
-                }
-
-                if (entry.Type != EntryType.Query)
-                {
-                    return false;
-                }
-
-                return true;
-            }
-
-            public override void Execute(object parameter)
-            {
-                if (!this.CanExecute(parameter))
-                {
-                    throw new ArgumentException("Selected item is not a query", "parameter");
-                }
-
-                var entry = parameter as EntryViewModel;
-                this.owner.client.SendQuery(entry.Database, entry.Filepath, entry.Text);
-            }
         }
 
         public IEnumerable<ConnectionViewModel> Connections

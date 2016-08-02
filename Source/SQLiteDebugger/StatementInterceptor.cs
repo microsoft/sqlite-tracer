@@ -31,6 +31,10 @@
         private bool collectResults = false;
         private ConcurrentDictionary<IntPtr, DataTable> results = new ConcurrentDictionary<IntPtr, DataTable>();
 
+        private bool pause = false;
+        private bool step = false;
+        private object pauseMonitor = new object();
+
         public StatementInterceptor(DebugServer server)
         {
             if (server == null)
@@ -82,6 +86,32 @@
                         UnsafeNativeMethods.sqlite3_row(db, null, IntPtr.Zero);
                     }
                 }
+            }
+        }
+
+        public bool Pause
+        {
+            get
+            {
+                return this.pause;
+            }
+
+            set
+            {
+                lock (this.pauseMonitor)
+                {
+                    this.pause = value;
+                    Monitor.Pulse(this.pauseMonitor);
+                }
+            }
+        }
+
+        public void Step()
+        {
+            lock (this.pauseMonitor)
+            {
+                this.step = true;
+                Monitor.Pulse(this.pauseMonitor);
             }
         }
 
@@ -196,6 +226,16 @@
                 }
 
                 this.results.TryAdd(stmt, dataTable);
+            }
+
+            lock (this.pauseMonitor)
+            {
+                while (this.Pause && !this.step)
+                {
+                    Monitor.Wait(this.pauseMonitor);
+                }
+
+                this.step = false;
             }
         }
 
