@@ -79,7 +79,7 @@ namespace Toolkit
             }
 
             var receiver = this.target.Target;
-            if (this.target != null)
+            if (receiver != null)
             {
                 return this.method.CreateDelegate(this.type, receiver);
             }

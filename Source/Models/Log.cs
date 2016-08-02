@@ -71,7 +71,12 @@ namespace SQLiteLogViewer.Models
         {
             if (disposing)
             {
+                this.select.Dispose();
+                this.count.Dispose();
                 this.insert.Dispose();
+                this.updateEnd.Dispose();
+                this.updateResults.Dispose();
+
                 this.connection.Dispose();
             }
         }
