@@ -45,6 +45,7 @@
     <Compile Include="EntryViewModel.cs" />
     <Compile Include="IConductor.cs" />
     <Compile Include="LogViewModel.cs" />
+    <Compile Include="MainViewModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

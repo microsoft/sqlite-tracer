@@ -57,6 +57,9 @@
     <Compile Include="Protocol\LogMessage.cs" />
     <Compile Include="IDebugTraceSender.cs" />
     <Compile Include="DebugServer.cs" />
+    <Compile Include="SQLiteBackup.cs" />
+    <Compile Include="SQLiteConnection.cs" />
+    <Compile Include="SQLiteStatement.cs" />
     <Compile Include="StatementInterceptor.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="UnsafeNativeMethods.cs" />

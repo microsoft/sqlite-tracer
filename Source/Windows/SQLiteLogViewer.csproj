@@ -86,6 +86,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\SQLiteDebugger\SQLiteDebugger.csproj">
+      <Project>{756C15D9-F08D-4BDF-A24E-7923C20730CC}</Project>
+      <Name>SQLiteDebugger</Name>
+    </ProjectReference>
     <ProjectReference Include="..\Toolkit\Toolkit.csproj">
       <Project>{9fbc79a6-ca1a-4b58-bde8-088e5429db0b}</Project>
       <Name>Toolkit</Name>

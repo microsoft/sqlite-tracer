@@ -9,6 +9,7 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="3*"/>
             <RowDefinition Height="1*"/>
         </Grid.RowDefinitions>
@@ -21,42 +22,58 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
             <StackPanel Orientation="Horizontal" Grid.Column="0">
-                <Button Command="{Binding Query}"
-                        Content="Query"
-                        Margin="0,0,3,0" Padding="5,2"/>
-                <Button Command="{Binding Replay}"
-                        Content="Replay"
-                        Margin="0,0,3,0" Padding="5,2"/>
+                <Button Command="{Binding New}" Content="New" Margin="0,0,3,0" Padding="5,2"/>
+                <Button Command="{Binding Open}" Content="Open" Margin="0,0,3,0" Padding="5,2"/>
+                <Button Command="{Binding Save}" Content="Save" Margin="0,0,3,0" Padding="5,2"/>
+
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="0,0,3,0"/>
-
-                <ToggleButton IsChecked="{Binding Pause}" Margin="0,0,3,0" Padding="5,2">
-                    <ToggleButton.Style>
-                        <Style TargetType="{x:Type ToggleButton}">
-                            <Setter Property="Content" Value="Pause"/>
-                            <Style.Triggers>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Setter Property="Content" Value="Continue"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ToggleButton.Style>
-                </ToggleButton>
-                <Button Command="{Binding Step}" IsEnabled="{Binding Pause}" Content="Step" Margin="0,0,3,0" Padding="5,2"/>
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" Grid.Column="2">
-                <CheckBox IsChecked="{Binding CollectPlan}" Content="Query Plan" Margin="3,0,0,0"/>
-                <CheckBox IsChecked="{Binding CollectResults}" Content="Results" Margin="3,0,0,0"/>
-            </StackPanel>
+            <Grid DataContext="{Binding LogViewModel}" Grid.Column="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" Grid.Column="0">
+                    <Button Command="{Binding Query}"
+                            Content="Query"
+                            Margin="0,0,3,0" Padding="5,2"/>
+                    <Button Command="{Binding Replay}"
+                            Content="Replay"
+                            Margin="0,0,3,0" Padding="5,2"/>
+
+                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="0,0,3,0"/>
+
+                    <ToggleButton IsChecked="{Binding Pause}" Margin="0,0,3,0" Padding="5,2">
+                        <ToggleButton.Style>
+                            <Style TargetType="{x:Type ToggleButton}">
+                                <Setter Property="Content" Value="Pause"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Content" Value="Continue"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
+                    <Button Command="{Binding Step}" IsEnabled="{Binding Pause}" Content="Step" Margin="0,0,3,0" Padding="5,2"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Grid.Column="2">
+                    <CheckBox IsChecked="{Binding CollectPlan}" Content="Query Plan" Margin="3,0,0,0"/>
+                    <CheckBox IsChecked="{Binding CollectResults}" Content="Results" Margin="3,0,0,0"/>
+                </StackPanel>
+            </Grid>
         </Grid>
 
         <DataGrid Name="Log" IsReadOnly="True" AutoGenerateColumns="False"
-                  ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}"
-                  Grid.Row="1" Grid.Column="0" Margin="3,0,0,0">
+                  DataContext="{Binding LogViewModel}" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}"
+                  Grid.Row="2" Grid.Column="0" Margin="3,0,0,0">
             <DataGrid.CellStyle>
                 <Style TargetType="DataGridCell">
                     <Setter Property="BorderThickness" Value="0"/>
@@ -65,8 +82,7 @@
             </DataGrid.CellStyle>
 
             <DataGrid.Columns>
-                <DataGridTextColumn Header="ID" Binding="{Binding ID}"/>
-                <DataGridTextColumn Header="Connection" Binding="{Binding Database}"/>
+                <DataGridTextColumn Header="Connection" Binding="{Binding Connection}"/>
                 <DataGridTextColumn Header="Database" Binding="{Binding Filename}"/>
                 <DataGridTextColumn Header="Start (ms)" Binding="{Binding Start, StringFormat=fff}"/>
                 <DataGridTextColumn Header="End (ms)" Binding="{Binding End, StringFormat=fff}"/>
@@ -76,7 +92,7 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <TabControl DataContext="{Binding SelectedEntry}" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="3,3,3,3">
+        <TabControl DataContext="{Binding LogViewModel.SelectedEntry}" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Margin="3,3,3,3">
             <TabItem Header="Details">
                 <TextBox IsReadOnly="True"
                          Text="{Binding Text, Mode=OneWay}"

@@ -14,7 +14,7 @@ namespace SQLiteLogViewer.ViewModels
 
     public class EntryViewModel : ObservableObject
     {
-        private readonly Entry entry;
+        private int connection;
         private string preview;
 
         public EntryViewModel(Entry entry)
@@ -24,49 +24,56 @@ namespace SQLiteLogViewer.ViewModels
                 throw new ArgumentNullException("entry");
             }
 
-            this.entry = entry;
+            this.Entry = entry;
+            this.connection = entry.Connection;
         }
+
+        internal Entry Entry { get; private set; }
 
         public EntryType Type
         {
-            get { return this.entry.Type; }
+            get { return this.Entry.Type; }
         }
 
-        public int ID
+        public int Connection
         {
-            get { return this.entry.ID; }
-        }
+            get
+            {
+                return this.connection;
+            }
 
-        public int Database
-        {
-            get { return this.entry.Database; }
+            set
+            {
+                this.connection = value;
+                this.NotifyPropertyChanged("Connection");
+            }
         }
 
         public string Filename
         {
-            get { return Path.GetFileNameWithoutExtension(this.entry.Filename); }
+            get { return Path.GetFileNameWithoutExtension(this.Entry.Database); }
         }
 
         internal string Filepath
         {
-            get { return this.entry.Filename; }
+            get { return this.Entry.Database; }
         }
 
         public DateTime Start
         {
-            get { return this.entry.Start; }
+            get { return this.Entry.Start; }
         }
 
         public DateTime End
         {
             get
             {
-                return this.entry.End;
+                return this.Entry.End;
             }
 
             set
             {
-                this.entry.End = value;
+                this.Entry.End = value;
                 this.NotifyPropertyChanged("End");
                 this.NotifyPropertyChanged("Duration");
                 this.NotifyPropertyChanged("Complete");
@@ -85,7 +92,7 @@ namespace SQLiteLogViewer.ViewModels
 
         public string Text
         {
-            get { return this.entry.Text; }
+            get { return this.Entry.Text; }
         }
 
         public string Preview
@@ -103,20 +110,20 @@ namespace SQLiteLogViewer.ViewModels
 
         public string Plan
         {
-            get { return this.entry.Plan; }
+            get { return this.Entry.Plan; }
         }
 
         public DataView Results
         {
             get
             {
-                return this.entry.Results != null ? this.entry.Results.AsDataView() : null;
+                return this.Entry.Results != null ? this.Entry.Results.AsDataView() : null;
             }
 
             set
             {
                 var table = value != null ? value.Table : null;
-                this.entry.Results = table;
+                this.Entry.Results = table;
                 this.NotifyPropertyChanged("Results");
             }
         }
