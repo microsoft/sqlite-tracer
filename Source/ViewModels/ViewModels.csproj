@@ -39,10 +39,12 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
+    <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConnectionViewModel.cs" />
     <Compile Include="EntryViewModel.cs" />
+    <Compile Include="FilterViewModel.cs" />
     <Compile Include="IConductor.cs" />
     <Compile Include="LogViewModel.cs" />
     <Compile Include="MainViewModel.cs" />

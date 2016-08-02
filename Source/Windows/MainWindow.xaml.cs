@@ -8,6 +8,8 @@
     using SQLiteDebugger;
     using System.Windows.Controls.Primitives;
     using System.Windows.Controls;
+    using System.ComponentModel;
+    using System.Linq;
 
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -28,11 +30,34 @@
 
             var logViewModel = new LogViewModel(this.events, this.client) { Conductor = this.conductor };
             var mainViewModel = new MainViewModel(this.events, this.client) { Conductor = this.conductor, LogViewModel = logViewModel };
+            this.Log.Sorting += this.Log_Sorting;
 
             this.DataContext = mainViewModel;
             this.client.Connect("localhost", this.app.Port);
 
             this.Closing += (sender, e) => e.Cancel = !mainViewModel.Cleanup();
+        }
+
+        private void Log_Sorting(object sender, DataGridSortingEventArgs e)
+        {
+            if (e.Column.SortDirection != ListSortDirection.Descending)
+            {
+                return;
+            }
+
+            var oldSort = this.Log.Items.SortDescriptions
+                .FirstOrDefault((sort) => sort.PropertyName == e.Column.SortMemberPath);
+            if (oldSort == null)
+            {
+                return;
+            }
+
+            e.Column.SortDirection = null;
+
+            this.Log.Items.SortDescriptions.Remove(oldSort);
+            this.Log.Items.Refresh();
+
+            e.Handled = true;
         }
 
         private void Log_ScrollChanged(object sender, ScrollChangedEventArgs e)

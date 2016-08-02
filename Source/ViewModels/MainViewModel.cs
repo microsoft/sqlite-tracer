@@ -96,16 +96,8 @@
 
         public LogViewModel LogViewModel
         {
-            get
-            {
-                return this.logViewModel;
-            }
-
-            set
-            {
-                this.logViewModel = value;
-                this.NotifyPropertyChanged("LogViewModel");
-            }
+            get { return this.logViewModel; }
+            set { this.SetField(ref this.logViewModel, value); }
         }
 
         public CommandBase New { get; private set; }

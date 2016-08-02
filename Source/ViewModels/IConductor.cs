@@ -4,6 +4,8 @@
     {
         void OpenQueryWindow();
 
+        void OpenFilterWindow();
+
         string OpenSaveFileDialog();
 
         string OpenOpenFileDialog();

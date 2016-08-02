@@ -127,5 +127,36 @@ namespace SQLiteLogViewer.ViewModels
                 this.NotifyPropertyChanged("Results");
             }
         }
+
+        public override bool Equals(object obj)
+        {
+            var other = obj as EntryViewModel;
+            return other != null && this.Entry == other.Entry;
+        }
+
+        public override int GetHashCode()
+        {
+            return this.Entry.GetHashCode();
+        }
+
+        public static bool operator ==(EntryViewModel a, EntryViewModel b)
+        {
+            if ((object)a == null)
+            {
+                return (object)b == null;
+            }
+
+            return a.Equals(b);
+        }
+
+        public static bool operator !=(EntryViewModel a, EntryViewModel b)
+        {
+            if ((object)a == null)
+            {
+                return (object)b != null;
+            }
+
+            return !a.Equals(b);
+        }
     }
 }

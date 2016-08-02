@@ -16,9 +16,10 @@
 
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
-        <Grid Grid.Row="0" Margin="3">
+        <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -109,5 +110,32 @@
                 <DataGrid ItemsSource="{Binding Results}" IsReadOnly="True"/>
             </TabItem>
         </TabControl>
+
+        <Grid DataContext="{Binding LogViewModel}" Grid.Row="2" Grid.Column="1" Margin="3,0,3,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <ListBox ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}"
+                     Margin="0,0,0,3" Grid.Row="0">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox Content="{Binding Description}" IsChecked="{Binding Enabled}"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel Orientation="Horizontal" Grid.Row="1">
+                <Button Content="New Filter" Command="{Binding NewFilter}" Padding="5,2" Margin="0,0,3,0"/>
+                <Button Content="Edit Filter" Command="{Binding EditFilter}" Padding="5,2" Margin="0,0,3,0"/>
+                <Button Content="Delete Filter" Command="{Binding DeleteFilter}" Padding="5,2"/>
+            </StackPanel>
+        </Grid>
+
+        <GridSplitter Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left" VerticalAlignment="Stretch" Width="2"/>
+        <GridSplitter Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" HorizontalAlignment="Stretch" VerticalAlignment="Top" Height="2"/>
     </Grid>
 </Window>

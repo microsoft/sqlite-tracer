@@ -13,9 +13,17 @@ namespace SQLiteLogViewer.Models
     using System.Collections.Generic;
     using System.Data;
     using System.Globalization;
+    using System.Linq;
+    using System.Text;
+    using System.Diagnostics.CodeAnalysis;
 
     public class Log : IDisposable
     {
+        private const string Columns = "rowid, type, connection, database, " +
+                                       "strftime('%Y-%m-%d %H:%M:%f', start), " +
+                                       "strftime('%Y-%m-%d %H:%M:%f', end), " +
+                                       "text, plan, results";
+
         private EventAggregator events;
 
         private SQLiteConnection connection;
@@ -32,12 +40,10 @@ namespace SQLiteLogViewer.Models
             this.connection = new SQLiteConnection(string.Empty, true);
             this.CreateDatabase();
 
-            this.select = this.connection.Prepare(
-                @"SELECT rowid, type, connection, database,
-                         strftime('%Y-%m-%d %H:%M:%f', start),
-                         strftime('%Y-%m-%d %H:%M:%f', end),
-                         text, plan, results
-                    FROM entries ORDER BY rowid LIMIT ? OFFSET ?");
+            this.select = this.connection.Prepare(string.Format(
+                CultureInfo.InvariantCulture,
+                @"SELECT {0} FROM entries ORDER BY rowid LIMIT ? OFFSET ?",
+                Columns));
 
             this.count = this.connection.Prepare(@"SELECT COUNT(*) FROM entries");
 
@@ -105,22 +111,22 @@ namespace SQLiteLogViewer.Models
             this.events.Publish<Entry>(entry);
         }
 
-        public IEnumerable<Entry> GetEntries(int offset, int length)
+        private IEnumerable<Entry> GetEntries(int offset, int length, SQLiteStatement query, int bindOffset)
         {
-            this.select.Bind(1, length);
-            this.select.Bind(2, offset);
+            query.Bind(bindOffset + 1, length);
+            query.Bind(bindOffset + 2, offset);
 
-            while (this.select.Step())
+            while (query.Step())
             {
-                var id = this.select.ColumnInt(0);
-                var type = (EntryType)this.select.ColumnInt(1);
-                var connectionId = this.select.ColumnInt(2);
-                var database = this.select.ColumnText(3);
-                var start = this.select.ColumnText(4);
-                var end = this.select.ColumnText(5);
-                var text = this.select.ColumnText(6);
-                var plan = this.select.ColumnText(7);
-                var results = this.select.ColumnText(8);
+                var id = query.ColumnInt(0);
+                var type = (EntryType)query.ColumnInt(1);
+                var connectionId = query.ColumnInt(2);
+                var database = query.ColumnText(3);
+                var start = query.ColumnText(4);
+                var end = query.ColumnText(5);
+                var text = query.ColumnText(6);
+                var plan = query.ColumnText(7);
+                var results = query.ColumnText(8);
 
                 var startDate = DateTime.Parse(start, null, DateTimeStyles.RoundtripKind);
                 var endDate = DateTime.Parse(end, null, DateTimeStyles.RoundtripKind);
@@ -142,18 +148,220 @@ namespace SQLiteLogViewer.Models
                 };
             }
 
-            this.select.Reset();
+            query.Reset();
         }
 
-        public int Count
+        public IEnumerable<Entry> GetEntries(int offset, int length, ISet<Filter> filters, IDictionary<string, bool> sorts)
         {
-            get
+            int bindOffset;
+            var sql = SelectQuery(Columns, filters, sorts, out bindOffset);
+            if (sql == null)
+            {
+                foreach (var entry in this.GetEntries(offset, length, this.select, 0))
+                {
+                    yield return entry;
+                }
+
+                yield break;
+            }
+
+            using (var query = this.connection.Prepare(sql + " LIMIT ? OFFSET ?"))
+            {
+                BindFilters(query, filters);
+
+                // can't just return, or `using` will end before the first iteration
+                foreach (var entry in this.GetEntries(offset, length, query, bindOffset))
+                {
+                    yield return entry;
+                }
+            }
+        }
+
+        public int Count(ISet<Filter> filters, IDictionary<string, bool> sorts)
+        {
+            int bindOffset;
+            var sql = SelectQuery("COUNT(*)", filters, sorts, out bindOffset);
+            if (sql == null)
             {
                 this.count.Step();
                 var n = this.count.ColumnInt(0);
                 this.count.Reset();
 
                 return n;
+            }
+
+            using (var query = this.connection.Prepare(sql))
+            {
+                BindFilters(query, filters);
+
+                query.Step();
+                return query.ColumnInt(0);
+            }
+        }
+
+        private static string SelectQuery(string columns, ISet<Filter> filters, IDictionary<string, bool> sorts, out int bindOffset)
+        {
+            bindOffset = 0;
+
+            var where = string.Empty;
+            if (filters != null && filters.Count > 0)
+            {
+                where = FilterQuery(filters, out bindOffset);
+            }
+
+            var order = string.Empty;
+            if (sorts != null && sorts.Count > 0)
+            {
+                order = SortQuery(sorts);
+            }
+
+            if (string.IsNullOrEmpty(where) && string.IsNullOrEmpty(order))
+            {
+                return null;
+            }
+
+            return string.Format(CultureInfo.InvariantCulture, "SELECT {0} FROM entries {1} {2}", columns, where, order);
+        }
+
+        private static string FilterQuery(ISet<Filter> filters, out int bindOffset)
+        {
+            var conditions = new List<string>(filters.Count);
+            var condition = new List<string>(5);
+
+            bindOffset = 0;
+            foreach (var filter in filters)
+            {
+                condition.Clear();
+
+                if (filter.Type != null)
+                {
+                    var invert = filter.Invert.HasFlag(FilterField.Type);
+                    condition.Add(string.Format(CultureInfo.InvariantCulture, "type {0} ?", invert ? "!=" : "="));
+                    bindOffset += 1;
+                }
+
+                if (!string.IsNullOrEmpty(filter.Database))
+                {
+                    var invert = filter.Invert.HasFlag(FilterField.Database);
+                    condition.Add(string.Format(CultureInfo.InvariantCulture, "database {0} ?", invert ? "NOT LIKE" : "LIKE"));
+                    bindOffset += 1;
+                }
+
+                if (filter.Complete != null)
+                {
+                    var invert = filter.Complete.Value != filter.Invert.HasFlag(FilterField.Complete);
+                    condition.Add(string.Format(CultureInfo.InvariantCulture, "end {0} ?", invert ? "!=" : "="));
+                    bindOffset += 1;
+                }
+
+                if (!string.IsNullOrEmpty(filter.Text))
+                {
+                    var invert = filter.Invert.HasFlag(FilterField.Text);
+                    condition.Add(string.Format(CultureInfo.InvariantCulture, "text {0} ?", invert ? "NOT LIKE" : "LIKE"));
+                    bindOffset += 1;
+                }
+
+                if (!string.IsNullOrEmpty(filter.Plan))
+                {
+                    var invert = filter.Invert.HasFlag(FilterField.Plan);
+                    condition.Add(string.Format(CultureInfo.InvariantCulture, "plan {0} ?", invert ? "NOT LIKE" : "LIKE"));
+                    bindOffset += 1;
+                }
+
+                if (condition.Count > 0)
+                {
+                    conditions.Add(string.Join(" AND ", condition));
+                }
+            }
+
+            if (conditions.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            return string.Format(CultureInfo.InvariantCulture, "WHERE {0}", string.Join(" OR ", conditions));
+        }
+
+        private static string SortQuery(IDictionary<string, bool> sorts)
+        {
+            var orders = new List<string>();
+            foreach (var sort in sorts)
+            {
+                var direction = sort.Value ? "ASC" : "DESC";
+                switch (sort.Key)
+                {
+                    case "Connection":
+                        orders.Add(string.Format(CultureInfo.InvariantCulture, "connection {0}", direction));
+                        break;
+
+                    case "Filename":
+                        // TODO: add a sqlite function to extract just the filename?
+                        orders.Add(string.Format(CultureInfo.InvariantCulture, "database {0}", direction));
+                        break;
+
+                    case "Start":
+                        orders.Add(string.Format(CultureInfo.InvariantCulture, "start {0}", direction));
+                        break;
+
+                    case "End":
+                        orders.Add(string.Format(CultureInfo.InvariantCulture, "end {0}", direction));
+                        break;
+
+                    case "Duration":
+                        orders.Add(string.Format(CultureInfo.InvariantCulture, "end - start {0}", direction));
+                        break;
+
+                    case "Complete":
+                        orders.Add(string.Format(CultureInfo.InvariantCulture, "end != julianday('{0}') {1}", default(DateTime), direction));
+                        break;
+
+                    case "Preview":
+                        orders.Add(string.Format(CultureInfo.InvariantCulture, "text {0}", direction));
+                        break;
+
+                    default:
+                        throw new InvalidOperationException("Cannot sort by property " + sort);
+                }
+            }
+
+            if (orders.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            return string.Format(CultureInfo.InvariantCulture, "ORDER BY {0}", string.Join(", ", orders));
+        }
+
+        [SuppressMessage("Microsoft.Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "SQL string")]
+        private static void BindFilters(SQLiteStatement query, ISet<Filter> filters)
+        {
+            var i = 1;
+            foreach (var filter in filters)
+            {
+                if (filter.Type != null)
+                {
+                    query.Bind(i++, (int)filter.Type);
+                }
+
+                if (filter.Database != null)
+                {
+                    query.Bind(i++, string.Format(CultureInfo.InvariantCulture, "%{0}%", filter.Database));
+                }
+
+                if (filter.Complete != null)
+                {
+                    query.Bind(i++, default(DateTime).ToString("o", CultureInfo.InvariantCulture));
+                }
+
+                if (filter.Text != null)
+                {
+                    query.Bind(i++, string.Format(CultureInfo.InvariantCulture, "%{0}%", filter.Text));
+                }
+
+                if (filter.Plan != null)
+                {
+                    query.Bind(i++, string.Format(CultureInfo.InvariantCulture, "%{0}%", filter.Plan));
+                }
             }
         }
 

@@ -67,6 +67,37 @@ namespace SQLiteLogViewer.Models
                 }
             }
         }
+
+        public override bool Equals(object obj)
+        {
+            var other = obj as Entry;
+            return other != null && this.Id == other.Id;
+        }
+
+        public override int GetHashCode()
+        {
+            return this.Id.GetHashCode();
+        }
+
+        public static bool operator ==(Entry a, Entry b)
+        {
+            if ((object)a == null)
+            {
+                return (object)b == null;
+            }
+
+            return a.Equals(b);
+        }
+
+        public static bool operator !=(Entry a, Entry b)
+        {
+            if ((object)a == null)
+            {
+                return (object)b != null;
+            }
+
+            return !a.Equals(b);
+        }
     }
 
     public enum EntryType
