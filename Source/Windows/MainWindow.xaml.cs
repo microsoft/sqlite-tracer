@@ -17,7 +17,7 @@
             this.InitializeComponent();
 
             var app = Application.Current as App;
-            var viewModel = new LogViewModel(this.events, app.Port);
+            var viewModel = new LogViewModel(this.events, app.Port) { Conductor = new Conductor() };
             this.events.Subscribe<EntryViewModel>(this.EntryAdded, ThreadAffinity.UIThread);
             this.DataContext = viewModel;
         }

@@ -49,6 +49,17 @@
             this.Send(json);
         }
 
+        public void SendQuery(int db, string filename, string query)
+        {
+            var data = new QueryMessage
+            {
+                Connection = db, Filename = filename, Query = query
+            };
+
+            var json = JsonConvert.SerializeObject(data);
+            this.Send(json);
+        }
+
         private void Send(string message)
         {
             var length = Encoding.UTF8.GetByteCount(message);
@@ -125,6 +136,16 @@
                         case LogMessage.Type:
                             var logMessage = serializer.Deserialize<LogMessage>(jsonReader);
                             this.events.Publish<LogMessage>(logMessage);
+                            break;
+
+                        case OpenMessage.Type:
+                            var openMessage = serializer.Deserialize<OpenMessage>(jsonReader);
+                            this.events.Publish<OpenMessage>(openMessage);
+                            break;
+
+                        case CloseMessage.Type:
+                            var closeMessage = serializer.Deserialize<CloseMessage>(jsonReader);
+                            this.events.Publish<CloseMessage>(closeMessage);
                             break;
 
                         case TraceMessage.Type:

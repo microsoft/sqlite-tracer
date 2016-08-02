@@ -102,6 +102,11 @@ namespace SQLiteDebugger
                             this.interceptor.CollectPlan = options.Plan;
                             this.interceptor.CollectResults = options.Results;
                             break;
+
+                        case QueryMessage.Type:
+                            var query = serializer.Deserialize<QueryMessage>(jsonReader);
+                            this.interceptor.Exec(query.Connection, query.Filename, query.Query);
+                            break;
                     }
                 }
             }
@@ -111,20 +116,40 @@ namespace SQLiteDebugger
         {
             var data = new LogMessage
             {
-                Database = "db", Time = DateTime.Now,
-                Message = message
+                Time = DateTime.Now, Message = message
             };
 
             var json = JsonConvert.SerializeObject(data);
             this.Send(json);
         }
 
-        public void SendTrace(int id, string query, string plan = null)
+        public void SendOpen(int db, string path)
+        {
+            var data = new OpenMessage
+            {
+                Id = db, Filename = path
+            };
+
+            var json = JsonConvert.SerializeObject(data);
+            this.Send(json);
+        }
+
+        public void SendClose(int db)
+        {
+            var data = new CloseMessage
+            {
+                Id = db
+            };
+
+            var json = JsonConvert.SerializeObject(data);
+            this.Send(json);
+        }
+
+        public void SendTrace(int id, int db, string query, string plan = null)
         {
             var data = new TraceMessage
             {
-                Database = "db", Time = DateTime.Now, Id = id,
-                Query = query, Plan = plan
+                Time = DateTime.Now, Id = id, Connection = db, Query = query, Plan = plan
             };
 
             var json = JsonConvert.SerializeObject(data);
@@ -135,8 +160,7 @@ namespace SQLiteDebugger
         {
             var data = new ProfileMessage
             {
-                Database = "db", Time = DateTime.Now, Id = id,
-                Duration = duration, Results = results
+                Time = DateTime.Now, Id = id, Duration = duration, Results = results
             };
 
             var json = JsonConvert.SerializeObject(data);

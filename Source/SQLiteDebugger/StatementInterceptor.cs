@@ -4,6 +4,8 @@
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Data;
+    using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Linq;
     using System.Runtime.InteropServices;
@@ -15,16 +17,18 @@
         private DebugServer server;
 
         private SQLiteEntryPoint connectHandler;
+        private SQLiteClose closeHandler;
         private SQLiteTraceV2 traceHandler;
         private SQLiteRow rowHandler;
         private SQLiteProfile profileHandler;
 
-        private bool collectResults = false;
-        private List<IntPtr> dbs = new List<IntPtr>();
+        private int currentDbId = 0;
+        private ConcurrentDictionary<IntPtr, int> connections = new ConcurrentDictionary<IntPtr, int>();
 
-        private int currentId = 0;
+        private int currentStmtId = 0;
         private ConcurrentDictionary<IntPtr, int> queries = new ConcurrentDictionary<IntPtr, int>();
 
+        private bool collectResults = false;
         private ConcurrentDictionary<IntPtr, DataTable> results = new ConcurrentDictionary<IntPtr, DataTable>();
 
         public StatementInterceptor(DebugServer server)
@@ -36,6 +40,7 @@
 
             this.server = server;
             this.connectHandler = this.OnConnect;
+            this.closeHandler = this.OnClose;
             this.traceHandler = this.OnTrace;
             this.rowHandler = this.OnRow;
             this.profileHandler = this.OnProfile;
@@ -65,14 +70,14 @@
                 this.collectResults = value;
                 if (this.collectResults)
                 {
-                    foreach (var db in this.dbs)
+                    foreach (var db in this.connections.Keys)
                     {
                         UnsafeNativeMethods.sqlite3_row(db, this.rowHandler, IntPtr.Zero);
                     }
                 }
                 else
                 {
-                    foreach (var db in this.dbs)
+                    foreach (var db in this.connections.Keys)
                     {
                         UnsafeNativeMethods.sqlite3_row(db, null, IntPtr.Zero);
                     }
@@ -80,8 +85,59 @@
             }
         }
 
+        [SuppressMessage("Microsoft.Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "Debug text")]
+        public void Exec(int connectionId, string filename, string sql)
+        {
+            if (sql == null)
+            {
+                throw new ArgumentNullException("sql");
+            }
+
+            var dispose = false;
+            int rc;
+
+            var connection = this.connections.FirstOrDefault((c) => c.Value == connectionId).Key;
+            if (connection == IntPtr.Zero)
+            {
+                dispose = true;
+
+                var flags = UnsafeNativeMethods.SQLITE_OPEN_READWRITE;
+                rc = UnsafeNativeMethods.sqlite3_open_v2(filename, out connection, flags, null);
+                if (rc != UnsafeNativeMethods.SQLITE_OK)
+                {
+                    this.server.SendLog(string.Format(CultureInfo.InvariantCulture, "[Error] Could not open database {0}", filename));
+                    return;
+                }
+            }
+
+            rc = UnsafeNativeMethods.sqlite3_exec(connection, sql, null, IntPtr.Zero, IntPtr.Zero);
+            if (rc != UnsafeNativeMethods.SQLITE_OK)
+            {
+                var error = UTF8ToString(UnsafeNativeMethods.sqlite3_errmsg(connection));
+                var message = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "[Error] Could not execute statement '{0}'\n{1}",
+                    sql.Replace(Environment.NewLine, " ").Replace('\n', ' '),
+                    error);
+                this.server.SendLog(message);
+            }
+
+            if (dispose)
+            {
+                rc = UnsafeNativeMethods.sqlite3_close_v2(connection);
+                if (rc != UnsafeNativeMethods.SQLITE_OK)
+                {
+                    throw new InvalidOperationException("SQLite could not close the connection");
+                }
+            }
+        }
+
         private int OnConnect(IntPtr db, ref string errMsg, IntPtr api)
         {
+            var id = Interlocked.Increment(ref this.currentDbId);
+            this.connections.TryAdd(db, id);
+            UnsafeNativeMethods.sqlite3_close_handler(db, this.closeHandler, IntPtr.Zero);
+
             UnsafeNativeMethods.sqlite3_trace_v2(db, this.traceHandler, IntPtr.Zero);
             UnsafeNativeMethods.sqlite3_profile(db, this.profileHandler, IntPtr.Zero);
 
@@ -90,7 +146,21 @@
                 UnsafeNativeMethods.sqlite3_row(db, this.rowHandler, IntPtr.Zero);
             }
 
+            var path = UTF8ToString(UnsafeNativeMethods.sqlite3_db_filename(db, "main"));
+            this.server.SendOpen(id, path);
+
             return UnsafeNativeMethods.SQLITE_OK;
+        }
+
+        private void OnClose(IntPtr data, IntPtr db)
+        {
+            int id;
+            if (!this.connections.TryRemove(db, out id))
+            {
+                return;
+            }
+
+            this.server.SendClose(id);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "Object is stored in hash table")]
@@ -102,7 +172,7 @@
                 return;
             }
 
-            var id = this.queries.GetOrAdd(stmt, (k) => Interlocked.Increment(ref this.currentId));
+            var id = this.queries.GetOrAdd(stmt, (k) => Interlocked.Increment(ref this.currentStmtId));
 
             string plan = null;
             if (this.CollectPlan)
@@ -111,7 +181,9 @@
                 plan = string.Join("\n", lines);
             }
 
-            this.server.SendTrace(id, sql, plan);
+            int db = 0;
+            this.connections.TryGetValue(UnsafeNativeMethods.sqlite3_db_handle(stmt), out db);
+            this.server.SendTrace(id, db, sql, plan);
 
             if (this.CollectResults)
             {

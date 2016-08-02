@@ -8,11 +8,11 @@
         [JsonProperty]
         public const string Type = "trace";
 
-        public string Database { get; set; }
+        public DateTime Time { get; set; }
 
         public int Id { get; set; }
 
-        public DateTime Time { get; set; }
+        public int Connection { get; set; }
 
         public string Query { get; set; }
 

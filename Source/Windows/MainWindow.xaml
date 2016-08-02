@@ -24,6 +24,16 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
+            <StackPanel Orientation="Horizontal" Grid.Column="0">
+                <Button Command="{Binding Query}"
+                        Content="Query"
+                        Margin="0,0,3,0" Padding="5,2"/>
+                <Button Command="{Binding Replay}"
+                        CommandParameter="{Binding SelectedEntry}"
+                        Content="Replay"
+                        Margin="0,0,3,0" Padding="5,2"/>
+            </StackPanel>
+
             <StackPanel Orientation="Horizontal" Grid.Column="2">
                 <CheckBox IsChecked="{Binding CollectPlan}" Content="Query Plan" Margin="3,0,0,0"/>
                 <CheckBox IsChecked="{Binding CollectResults}" Content="Results" Margin="3,0,0,0"/>
@@ -42,7 +52,9 @@
 
             <DataGrid.Columns>
                 <DataGridTextColumn Header="ID" Binding="{Binding ID}"/>
+                <DataGridTextColumn Header="Database" Binding="{Binding Filename}"/>
                 <DataGridTextColumn Header="Start (ms)" Binding="{Binding Start, StringFormat=fff}"/>
+                <DataGridTextColumn Header="End (ms)" Binding="{Binding End, StringFormat=fff}"/>
                 <DataGridTextColumn Header="Duration (ms)" Binding="{Binding Duration, StringFormat=fff}"/>
                 <DataGridCheckBoxColumn Header="Complete" Binding="{Binding Complete, Mode=OneWay}"/>
                 <DataGridTextColumn Width="*" Binding="{Binding Preview}"/>
