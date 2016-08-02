@@ -11,6 +11,8 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
@@ -39,12 +41,20 @@
                   VerticalAlignment="Center" Grid.Row="2" Grid.Column="1"/>
         <CheckBox IsChecked="{Binding InvertComplete}" Content="Not" VerticalAlignment="Center" Grid.Row="2" Grid.Column="2"/>
 
-        <Label Content="Text" Grid.Row="3" Grid.Column="0"/>
-        <TextBox Text="{Binding Text}" AcceptsReturn="True" Grid.Row="3" Grid.Column="1" Margin="0,0,0,3"/>
-        <CheckBox IsChecked="{Binding InvertText}" Content="Not" VerticalAlignment="Center" Grid.Row="3" Grid.Column="2"/>
+        <Label Content="After" Grid.Row="3" Grid.Column="0"/>
+        <TextBox Text="{Binding After, StringFormat={}{0:d MMM H:m:s.fff}}" VerticalAlignment="Center" Grid.Row="3" Grid.Column="1"/>
+        <CheckBox IsChecked="{Binding InvertAfter}" Content="Not" VerticalAlignment="Center" Grid.Row="3" Grid.Column="2"/>
 
-        <Label Content="Plan" Grid.Row="4" Grid.Column="0"/>
-        <TextBox Text="{Binding Plan}" AcceptsReturn="True" Grid.Row="4" Grid.Column="1"/>
-        <CheckBox IsChecked="{Binding InvertPlan}" Content="Not" VerticalAlignment="Center" Grid.Row="4" Grid.Column="2"/>
+        <Label Content="Before" Grid.Row="4" Grid.Column="0"/>
+        <TextBox Text="{Binding Before, StringFormat={}{0:d MMM H:m:s.fff}}" VerticalAlignment="Center" Grid.Row="4" Grid.Column="1"/>
+        <CheckBox IsChecked="{Binding InvertBefore}" Content="Not" VerticalAlignment="Center" Grid.Row="4" Grid.Column="2"/>
+
+        <Label Content="Text" Grid.Row="5" Grid.Column="0"/>
+        <TextBox Text="{Binding Text}" AcceptsReturn="True" Grid.Row="5" Grid.Column="1" Margin="0,0,0,3"/>
+        <CheckBox IsChecked="{Binding InvertText}" Content="Not" VerticalAlignment="Center" Grid.Row="5" Grid.Column="2"/>
+
+        <Label Content="Plan" Grid.Row="6" Grid.Column="0"/>
+        <TextBox Text="{Binding Plan}" AcceptsReturn="True" Grid.Row="6" Grid.Column="1"/>
+        <CheckBox IsChecked="{Binding InvertPlan}" Content="Not" VerticalAlignment="Center" Grid.Row="6" Grid.Column="2"/>
     </Grid>
 </Window>

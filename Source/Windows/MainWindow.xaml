@@ -85,9 +85,9 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Connection" Binding="{Binding Connection}"/>
                 <DataGridTextColumn Header="Database" Binding="{Binding Filename}"/>
-                <DataGridTextColumn Header="Start (ms)" Binding="{Binding Start, StringFormat=fff}"/>
-                <DataGridTextColumn Header="End (ms)" Binding="{Binding End, StringFormat=fff}"/>
-                <DataGridTextColumn Header="Duration (ms)" Binding="{Binding Duration, StringFormat=fff}"/>
+                <DataGridTextColumn Header="Start" Binding="{Binding Start, StringFormat={}{0:d MMM H:m:s.fff}}"/>
+                <DataGridTextColumn Header="End" Binding="{Binding End, StringFormat={}{0:d MMM H:m:s.fff}}"/>
+                <DataGridTextColumn Header="Duration" Binding="{Binding Duration, StringFormat={}{0:m':'s'.'fff}}"/>
                 <DataGridCheckBoxColumn Header="Complete" Binding="{Binding Complete, Mode=OneWay}"/>
                 <DataGridTextColumn Width="*" Binding="{Binding Preview}"/>
             </DataGrid.Columns>

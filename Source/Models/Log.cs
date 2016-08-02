@@ -247,6 +247,20 @@ namespace SQLiteLogViewer.Models
                     bindOffset += 1;
                 }
 
+                if (filter.After != null && filter.After != default(DateTime))
+                {
+                    var invert = filter.Invert.HasFlag(FilterField.After);
+                    condition.Add(string.Format(CultureInfo.InvariantCulture, "end {0} julianday(?)", invert ? "<" : ">="));
+                    bindOffset += 1;
+                }
+
+                if (filter.Before != null && filter.Before != default(DateTime))
+                {
+                    var invert = filter.Invert.HasFlag(FilterField.Before);
+                    condition.Add(string.Format(CultureInfo.InvariantCulture, "start {0} julianday(?)", invert ? ">" : "<="));
+                    bindOffset += 1;
+                }
+
                 if (filter.Complete != null)
                 {
                     var invert = filter.Complete.Value != filter.Invert.HasFlag(FilterField.Complete);
@@ -346,6 +360,16 @@ namespace SQLiteLogViewer.Models
                 if (filter.Database != null)
                 {
                     query.Bind(i++, string.Format(CultureInfo.InvariantCulture, "%{0}%", filter.Database));
+                }
+
+                if (filter.After != null && filter.After != default(DateTime))
+                {
+                    query.Bind(i++, filter.After.ToString("o", CultureInfo.InvariantCulture));
+                }
+
+                if (filter.Before != null && filter.Before != default(DateTime))
+                {
+                    query.Bind(i++, filter.Before.ToString("o", CultureInfo.InvariantCulture));
                 }
 
                 if (filter.Complete != null)

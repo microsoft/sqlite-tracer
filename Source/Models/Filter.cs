@@ -12,9 +12,11 @@
         None = 0,
         Type = 1,
         Database = 2,
-        Complete = 4,
-        Text = 8,
-        Plan = 16,
+        After = 4,
+        Before = 8,
+        Complete = 16,
+        Text = 32,
+        Plan = 64,
     }
 
     public struct Filter
@@ -22,6 +24,8 @@
         public FilterField Invert;
         public EntryType? Type;
         public string Database;
+        public DateTime After;
+        public DateTime Before;
         public bool? Complete;
         public string Text;
         public string Plan;
