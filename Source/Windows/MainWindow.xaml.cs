@@ -6,6 +6,7 @@
     using System;
     using System.Diagnostics.CodeAnalysis;
     using SQLiteDebugger;
+    using System.Windows.Controls.Primitives;
 
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -26,7 +27,7 @@
 
             var logViewModel = new LogViewModel(this.events, this.client) { Conductor = this.conductor };
             var mainViewModel = new MainViewModel(this.events, this.client) { Conductor = this.conductor, LogViewModel = logViewModel };
-            this.events.Subscribe<EntryViewModel>(this.EntryAdded, ThreadAffinity.UIThread);
+            this.Log.ItemContainerGenerator.StatusChanged += ItemContainerGenerator_StatusChanged;
 
             this.DataContext = mainViewModel;
             this.client.Connect("localhost", this.app.Port);
@@ -34,9 +35,13 @@
             this.Closing += (sender, e) => e.Cancel = !mainViewModel.Cleanup();
         }
 
-        private void EntryAdded(EntryViewModel entry)
+        private void ItemContainerGenerator_StatusChanged(object sender, EventArgs e)
         {
-            this.Log.ScrollIntoView(entry);
+            if (this.Log.ItemContainerGenerator.Status == GeneratorStatus.ContainersGenerated)
+            {
+                var info = this.Log.Items[this.Log.Items.Count - 1];
+                this.Log.ScrollIntoView(info);
+            }
         }
 
         private class WpfDispatcher : IDispatcher

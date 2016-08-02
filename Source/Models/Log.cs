@@ -6,43 +6,59 @@
 
 namespace SQLiteLogViewer.Models
 {
+    using Toolkit;
     using Newtonsoft.Json;
     using SQLiteDebugger;
     using System;
-    using System.Collections.ObjectModel;
-    using System.Collections.Specialized;
+    using System.Collections.Generic;
     using System.Data;
     using System.Globalization;
-    using System.Linq;
 
     public class Log : IDisposable
     {
+        private EventAggregator events;
+
         private SQLiteConnection connection;
         private SQLiteStatement select;
+        private SQLiteStatement count;
         private SQLiteStatement insert;
         private SQLiteStatement updateEnd;
         private SQLiteStatement updateResults;
 
-        public Log()
+        public Log(EventAggregator events)
         {
-            this.connection = new SQLiteConnection(":memory:", true);
+            this.events = events;
+
+            this.connection = new SQLiteConnection(string.Empty, true);
             this.CreateDatabase();
+
             this.select = this.connection.Prepare(
                 @"SELECT rowid, type, connection, database,
                          strftime('%Y-%m-%d %H:%M:%f', start),
                          strftime('%Y-%m-%d %H:%M:%f', end),
                          text, plan, results
-                    FROM entries");
-            this.insert = this.connection.Prepare(
-                @"INSERT INTO entries (type, connection, database, start, end, text, plan, results)
-                  VALUES (?, ?, ?, julianday(?), julianday(?), ?, ?, ?)");
+                    FROM entries ORDER BY rowid LIMIT ? OFFSET ?");
+
+            this.count = this.connection.Prepare(@"SELECT COUNT(*) FROM entries");
+
+            this.insert = this.connection.Prepare(@"INSERT INTO entries (
+                type, connection, database, start, end, text, plan, results
+            ) VALUES (?, ?, ?, julianday(?), julianday(?), ?, ?, ?)");
+
             this.updateEnd = this.connection.Prepare(
                 "UPDATE entries SET end = julianday(?) WHERE rowid = ?");
             this.updateResults = this.connection.Prepare(
                 "UPDATE entries SET results = ? WHERE rowid = ?");
+        }
 
-            this.Entries = new ObservableCollection<Entry>();
-            this.Entries.CollectionChanged += this.Entries_CollectionChanged;
+        public Log(EventAggregator events, string filename)
+            : this(events)
+        {
+            using (var load = new SQLiteConnection(filename))
+            using (var backup = new SQLiteBackup(this.connection, "main", load, "main"))
+            {
+                backup.Step();
+            }
         }
 
         public void Dispose()
@@ -60,26 +76,34 @@ namespace SQLiteLogViewer.Models
             }
         }
 
-        public ObservableCollection<Entry> Entries { get; private set; }
-
-        public void SaveToFile(string filename)
+        public void AddEntry(Entry entry)
         {
-            using (var save = new SQLiteConnection(filename, true))
-            using (var backup = new SQLiteBackup(save, "main", this.connection, "main"))
+            if (entry == null)
             {
-                backup.Step();
+                throw new ArgumentNullException("entry");
             }
+
+            this.insert.Bind(1, (int)entry.Type);
+            this.insert.Bind(2, entry.Connection);
+            this.insert.Bind(3, entry.Database);
+            this.insert.Bind(4, entry.Start.ToString("o", CultureInfo.InvariantCulture));
+            this.insert.Bind(5, entry.End.ToString("o", CultureInfo.InvariantCulture));
+            this.insert.Bind(6, entry.Text);
+            this.insert.Bind(7, entry.Plan);
+            this.insert.Bind(8, JsonConvert.SerializeObject(entry.Results));
+            this.insert.Step();
+            this.insert.Reset();
+
+            entry.Id = (int)this.connection.LastInsertId();
+            entry.Parent = this;
+
+            this.events.Publish<Entry>(entry);
         }
 
-        public void LoadFromFile(string filename)
+        public IEnumerable<Entry> GetEntries(int offset, int length)
         {
-            using (var load = new SQLiteConnection(filename))
-            using (var backup = new SQLiteBackup(this.connection, "main", load, "main"))
-            {
-                backup.Step();
-            }
-
-            this.Entries.CollectionChanged -= this.Entries_CollectionChanged;
+            this.select.Bind(1, length);
+            this.select.Bind(2, offset);
 
             while (this.select.Step())
             {
@@ -98,7 +122,7 @@ namespace SQLiteLogViewer.Models
 
                 var resultsTable = JsonConvert.DeserializeObject<DataTable>(results);
 
-                this.Entries.Add(new Entry
+                yield return new Entry
                 {
                     Id = id,
                     Parent = this,
@@ -110,39 +134,30 @@ namespace SQLiteLogViewer.Models
                     Text = text,
                     Plan = plan,
                     Results = resultsTable,
-                });
+                };
             }
 
             this.select.Reset();
-            this.Entries.CollectionChanged += this.Entries_CollectionChanged;
         }
 
-        private void Entries_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        public int Count
         {
-            switch (e.Action)
+            get
             {
-                case NotifyCollectionChangedAction.Add:
-                    foreach (var entry in e.NewItems.Cast<Entry>())
-                    {
-                        this.insert.Bind(1, (int)entry.Type);
-                        this.insert.Bind(2, entry.Connection);
-                        this.insert.Bind(3, entry.Database);
-                        this.insert.Bind(4, entry.Start.ToString("o", CultureInfo.InvariantCulture));
-                        this.insert.Bind(5, entry.End.ToString("o", CultureInfo.InvariantCulture));
-                        this.insert.Bind(6, entry.Text);
-                        this.insert.Bind(7, entry.Plan);
-                        this.insert.Bind(8, JsonConvert.SerializeObject(entry.Results));
-                        this.insert.Step();
-                        this.insert.Reset();
+                this.count.Step();
+                var n = this.count.ColumnInt(0);
+                this.count.Reset();
 
-                        entry.Id = (int)this.connection.LastInsertId();
-                        entry.Parent = this;
-                    }
+                return n;
+            }
+        }
 
-                    break;
-
-                default:
-                    throw new InvalidOperationException("Log can only be appended to.");
+        public void SaveToFile(string filename)
+        {
+            using (var save = new SQLiteConnection(filename, true))
+            using (var backup = new SQLiteBackup(save, "main", this.connection, "main"))
+            {
+                backup.Step();
             }
         }
 

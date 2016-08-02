@@ -12,6 +12,7 @@ namespace SQLiteLogViewer.ViewModels
     using System.Collections.Generic;
     using System.Collections.ObjectModel;
     using System.Collections.Specialized;
+    using System.ComponentModel;
     using System.Data;
     using System.Linq;
     using System.Windows;
@@ -22,7 +23,7 @@ namespace SQLiteLogViewer.ViewModels
         private EventAggregator events;
         private readonly DebugClient client;
 
-        private readonly Log log = new Log();
+        private readonly Log log;
 
         private bool collectPlan = false;
         private bool collectResults = false;
@@ -36,7 +37,7 @@ namespace SQLiteLogViewer.ViewModels
         private ConnectionViewModel selectedConnection;
         private HashSet<string> databases = new HashSet<string>();
 
-        public LogViewModel(EventAggregator events, DebugClient client)
+        public LogViewModel(EventAggregator events, DebugClient client, string filename = null)
         {
             if (events == null)
             {
@@ -44,6 +45,15 @@ namespace SQLiteLogViewer.ViewModels
             }
 
             this.events = events;
+
+            if (filename != null)
+            {
+                this.log = new Log(events, filename);
+            }
+            else
+            {
+                this.log = new Log(events);
+            }
 
             this.Step = new DelegateCommand(() =>
             {
@@ -76,8 +86,8 @@ namespace SQLiteLogViewer.ViewModels
                     return !this.Pause && connection != null;
                 });
 
-            this.Entries = new ObservableCollection<EntryViewModel>();
-            this.log.Entries.CollectionChanged += this.Log_CollectionChanged;
+            this.Entries = new VirtualLog(events, this.log);
+            this.Entries.CollectionChanged += this.Entries_CollectionChanged;
 
             this.client = client;
             events.Subscribe<ConnectEvent>((c) => this.SendOptions(), ThreadAffinity.PublisherThread);
@@ -104,7 +114,7 @@ namespace SQLiteLogViewer.ViewModels
             }
         }
 
-        public ObservableCollection<EntryViewModel> Entries { get; private set; }
+        public VirtualLog Entries { get; private set; }
 
         public EntryViewModel SelectedEntry
         {
@@ -209,25 +219,18 @@ namespace SQLiteLogViewer.ViewModels
             this.IsDirty = false;
         }
 
-        public void LoadFromFile(string filename)
-        {
-            this.log.LoadFromFile(filename);
-            this.IsDirty = false;
-        }
-
-        private void Log_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        private void Entries_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             switch (e.Action)
             {
                 case NotifyCollectionChangedAction.Add:
-                    foreach (var entry in e.NewItems.Cast<Entry>())
+                    this.IsDirty = true;
+
+                    foreach (var entry in e.NewItems.Cast<EntryViewModel>())
                     {
-                        var entryViewModel = new EntryViewModel(entry);
-                        this.Entries.Insert(e.NewStartingIndex, entryViewModel);
-                        this.events.Publish<EntryViewModel>(entryViewModel);
+                        this.events.Publish<EntryViewModel>(entry);
                     }
 
-                    this.IsDirty = true;
                     break;
 
                 default:
@@ -245,7 +248,7 @@ namespace SQLiteLogViewer.ViewModels
                 Text = message.Message
             };
 
-            this.log.Entries.Add(entry);
+            this.log.AddEntry(entry);
         }
 
         private void OpenReceived(OpenMessage open)
@@ -273,7 +276,7 @@ namespace SQLiteLogViewer.ViewModels
                 Plan = trace.Plan
             };
 
-            this.log.Entries.Add(entry);
+            this.log.AddEntry(entry);
             this.pendingEntries.Add(trace.Id, this.Entries.Last());
         }
 
