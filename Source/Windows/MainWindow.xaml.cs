@@ -7,6 +7,7 @@
     using System.Diagnostics.CodeAnalysis;
     using SQLiteDebugger;
     using System.Windows.Controls.Primitives;
+    using System.Windows.Controls;
 
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -27,7 +28,6 @@
 
             var logViewModel = new LogViewModel(this.events, this.client) { Conductor = this.conductor };
             var mainViewModel = new MainViewModel(this.events, this.client) { Conductor = this.conductor, LogViewModel = logViewModel };
-            this.Log.ItemContainerGenerator.StatusChanged += ItemContainerGenerator_StatusChanged;
 
             this.DataContext = mainViewModel;
             this.client.Connect("localhost", this.app.Port);
@@ -35,9 +35,22 @@
             this.Closing += (sender, e) => e.Cancel = !mainViewModel.Cleanup();
         }
 
-        private void ItemContainerGenerator_StatusChanged(object sender, EventArgs e)
+        private void Log_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
-            if (this.Log.ItemContainerGenerator.Status == GeneratorStatus.ContainersGenerated)
+            if (this.Log.Items.Count == 0)
+            {
+                return;
+            }
+
+            if (e.ExtentHeightChange == 0 && e.ViewportHeightChange == 0)
+            {
+                return;
+            }
+
+            var oldExtentHeight = e.ExtentHeight - e.ExtentHeightChange;
+            var oldVerticalOffset = e.VerticalOffset - e.VerticalChange;
+            var oldViewportHeight = e.ViewportHeight - e.ViewportHeightChange;
+            if (oldVerticalOffset + oldViewportHeight + 5 >= oldExtentHeight)
             {
                 var info = this.Log.Items[this.Log.Items.Count - 1];
                 this.Log.ScrollIntoView(info);

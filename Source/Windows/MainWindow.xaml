@@ -71,7 +71,7 @@
             </Grid>
         </Grid>
 
-        <DataGrid Name="Log" IsReadOnly="True" AutoGenerateColumns="False"
+        <DataGrid Name="Log" IsReadOnly="True" AutoGenerateColumns="False" ScrollViewer.ScrollChanged="Log_ScrollChanged"
                   DataContext="{Binding LogViewModel}" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}"
                   Grid.Row="2" Grid.Column="0" Margin="3,0,0,0">
             <DataGrid.CellStyle>
