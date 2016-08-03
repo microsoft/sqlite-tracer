@@ -4,7 +4,6 @@
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Data;
-    using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Linq;
@@ -17,10 +16,11 @@
         private DebugServer server;
 
         private SQLiteEntryPoint connectHandler;
-        private SQLiteClose closeHandler;
-        private SQLiteTraceV2 traceHandler;
-        private SQLiteRow rowHandler;
-        private SQLiteProfile profileHandler;
+        private SQLiteTrace traceHandler;
+        private uint traceFlags =
+            UnsafeNativeMethods.SQLITE_TRACE_STMT |
+            UnsafeNativeMethods.SQLITE_TRACE_PROFILE |
+            UnsafeNativeMethods.SQLITE_TRACE_CLOSE;
 
         private int currentDbId = 0;
         private ConcurrentDictionary<IntPtr, int> connections = new ConcurrentDictionary<IntPtr, int>();
@@ -44,10 +44,7 @@
 
             this.server = server;
             this.connectHandler = this.OnConnect;
-            this.closeHandler = this.OnClose;
-            this.traceHandler = this.OnTrace;
-            this.rowHandler = this.OnRow;
-            this.profileHandler = this.OnProfile;
+            this.traceHandler = this.OnEvent;
 
             if (UnsafeNativeMethods.sqlite3_auto_extension(this.connectHandler) != UnsafeNativeMethods.SQLITE_OK)
             {
@@ -74,17 +71,16 @@
                 this.collectResults = value;
                 if (this.collectResults)
                 {
-                    foreach (var db in this.connections.Keys)
-                    {
-                        UnsafeNativeMethods.sqlite3_row(db, this.rowHandler, IntPtr.Zero);
-                    }
+                    this.traceFlags |= UnsafeNativeMethods.SQLITE_TRACE_ROW;
                 }
                 else
                 {
-                    foreach (var db in this.connections.Keys)
-                    {
-                        UnsafeNativeMethods.sqlite3_row(db, null, IntPtr.Zero);
-                    }
+                    this.traceFlags &= ~UnsafeNativeMethods.SQLITE_TRACE_ROW;
+                }
+
+                foreach (var db in this.connections.Keys)
+                {
+                    UnsafeNativeMethods.sqlite3_trace_v2(db, this.traceFlags, this.traceHandler, IntPtr.Zero);
                 }
             }
         }
@@ -162,19 +158,36 @@
             }
         }
 
+        private void OnEvent(uint type, IntPtr data, IntPtr stmt, IntPtr arg)
+        {
+            switch (type)
+            {
+                case UnsafeNativeMethods.SQLITE_TRACE_STMT:
+                    var sqlRaw = UnsafeNativeMethods.sqlite3_expanded_sql(stmt);
+                    var sql = UTF8ToString(sqlRaw);
+                    UnsafeNativeMethods.sqlite3_free(sqlRaw);
+                    this.OnTrace(stmt, sql);
+                    break;
+
+                case UnsafeNativeMethods.SQLITE_TRACE_PROFILE:
+                    this.OnProfile(stmt, (ulong)Marshal.ReadInt64(arg));
+                    break;
+
+                case UnsafeNativeMethods.SQLITE_TRACE_ROW:
+                    this.OnRow(stmt);
+                    break;
+
+                case UnsafeNativeMethods.SQLITE_TRACE_CLOSE:
+                    this.OnClose(stmt);
+                    break;
+            }
+        }
+
         private int OnConnect(IntPtr db, ref string errMsg, IntPtr api)
         {
             var id = Interlocked.Increment(ref this.currentDbId);
             this.connections.TryAdd(db, id);
-            UnsafeNativeMethods.sqlite3_close_handler(db, this.closeHandler, IntPtr.Zero);
-
-            UnsafeNativeMethods.sqlite3_trace_v2(db, this.traceHandler, IntPtr.Zero);
-            UnsafeNativeMethods.sqlite3_profile(db, this.profileHandler, IntPtr.Zero);
-
-            if (this.collectResults)
-            {
-                UnsafeNativeMethods.sqlite3_row(db, this.rowHandler, IntPtr.Zero);
-            }
+            UnsafeNativeMethods.sqlite3_trace_v2(db, this.traceFlags, this.traceHandler, IntPtr.Zero);
 
             var path = UTF8ToString(UnsafeNativeMethods.sqlite3_db_filename(db, "main"));
             this.server.SendOpen(id, path);
@@ -182,7 +195,7 @@
             return UnsafeNativeMethods.SQLITE_OK;
         }
 
-        private void OnClose(IntPtr data, IntPtr db)
+        private void OnClose(IntPtr db)
         {
             int id;
             if (!this.connections.TryRemove(db, out id))
@@ -194,7 +207,7 @@
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope", Justification = "Object is stored in hash table")]
-        private void OnTrace(IntPtr data, IntPtr stmt, string sql)
+        private void OnTrace(IntPtr stmt, string sql)
         {
             // don't go into an endless loop trying to EXPLAIN EXPLAIN EXPLAIN EXPLAIN ...
             if (sql.StartsWith("EXPLAIN", StringComparison.Ordinal))
@@ -239,7 +252,7 @@
             }
         }
 
-        private void OnRow(IntPtr data, IntPtr stmt)
+        private void OnRow(IntPtr stmt)
         {
             DataTable dataTable;
             if (!this.results.TryGetValue(stmt, out dataTable))
@@ -258,7 +271,7 @@
             dataTable.Rows.Add(row);
         }
 
-        private void OnProfile(IntPtr data, IntPtr stmt, ulong time)
+        private void OnProfile(IntPtr stmt, ulong time)
         {
             int id;
             if (!this.queries.TryRemove(stmt, out id))
