@@ -12,7 +12,7 @@
 
     internal delegate void SQLiteClose(IntPtr data, IntPtr db);
 
-    internal delegate void SQLiteTraceV2(IntPtr data, IntPtr stmt, string query);
+    internal delegate void SQLiteTrace(uint type, IntPtr data, IntPtr stmt, IntPtr arg);
 
     internal delegate void SQLiteRow(IntPtr data, IntPtr stmt);
 
@@ -28,6 +28,14 @@
         internal const int SQLITE_OPEN_READWRITE = 2;
         internal const int SQLITE_OPEN_CREATE = 4;
 
+        internal const uint SQLITE_TRACE_STMT = 1;
+        internal const uint SQLITE_TRACE_PROFILE = 2;
+        internal const uint SQLITE_TRACE_ROW = 4;
+        internal const uint SQLITE_TRACE_CLOSE = 8;
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr sqlite3_free(IntPtr data);
+
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int sqlite3_auto_extension(SQLiteEntryPoint entryPoint);
 
@@ -41,21 +49,12 @@
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr sqlite3_errmsg(IntPtr db);
 
-        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr sqlite3_close_handler(IntPtr db, SQLiteClose close, IntPtr data);
-
         [SuppressMessage("Microsoft.Globalization", "CA2101:SpecifyMarshalingForPInvokeStringArguments", Justification = "Technically should be UTF-8")]
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr sqlite3_db_filename(IntPtr db, string name);
 
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr sqlite3_trace_v2(IntPtr db, SQLiteTraceV2 trace, IntPtr data);
-
-        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr sqlite3_row(IntPtr db, SQLiteRow trace, IntPtr data);
-
-        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
-        internal static extern IntPtr sqlite3_profile(IntPtr db, SQLiteProfile profile, IntPtr data);
+        internal static extern IntPtr sqlite3_trace_v2(IntPtr db, uint flags, SQLiteTrace trace, IntPtr data);
 
         [SuppressMessage("Microsoft.Globalization", "CA2101:SpecifyMarshalingForPInvokeStringArguments", Justification = "Technically should be UTF-8")]
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
@@ -86,6 +85,9 @@
 
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern int sqlite3_step(IntPtr stmt);
+
+        [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
+        internal static extern IntPtr sqlite3_expanded_sql(IntPtr stmt);
 
         [DllImport("SQLite.Interop.dll", CallingConvention = CallingConvention.Cdecl)]
         internal static extern IntPtr sqlite3_db_handle(IntPtr stmt);
