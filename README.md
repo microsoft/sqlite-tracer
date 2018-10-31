@@ -1,6 +1,8 @@
 # SQLite Tracer
 
-SQLite Tracer is a library and tool to profile and debug applications using SQLite. The library is linked into the target application, where it acts as a server for the tool to connect and receive information on statement execution. Main features:
+SQLite Tracer is a library and tool to profile and debug applications using SQLite. The library is linked into the target application, where it acts as a server for the tool to connect and receive information on statement execution. 
+
+The main features are:
 
  * Intercept statements executed by the target application
    * Log query start time, end time, and duration
@@ -16,7 +18,7 @@ SQLite Tracer is a library and tool to profile and debug applications using SQLi
 
 The provided solution `SQLiteTracer.sln` builds both the debugger assembly `SQLiteDebugger` and the log viewer app `SQLiteLogViewer`. The debug assembly depends on `Newtonsoft.Json`, and the log viewer also depends on `System.Data.SQLite` (currently only for SQLite itself, not the ADO.NET provider). These dependencies are provided with NuGet, and can be retrieved in Visual Studio with the "Restore NuGet packages" command.
 
-The debug assembly is also provided as a NuGet package, `SQLiteDebugger`. This package can be built by running the following command from the `Source/SQLiteDebugger` directory, after building the library in release mode:
+The debug assembly is also provided as a NuGet package: `SQLiteDebugger`. This package can be built by running the following command from the `Source/SQLiteDebugger` directory, after building the library in release mode:
 
 ```batchfile
 nuget pack SQLiteDebugger.csproj -Prop Configuration=Release -IncludeReferencedProjects
